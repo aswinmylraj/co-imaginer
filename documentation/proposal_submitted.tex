@@ -1,0 +1,128 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{amsmath,amssymb}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+\usepackage{microtype}
+% CHANGED: added booktabs for the new 2x2 ablation table
+\usepackage{booktabs}
+% CHANGED: added [final] so tracked-change markup is hidden in the PDF.
+% Remove [final] to see the markup again while editing.
+\usepackage[final,defaultcolor=black]{changes}
+
+
+\begin{document}
+\definechangesauthor[name={TBH}, color=green]{TBH}
+\title{Dreaming the Right Neighbours: Dynamic Communication Graphs\\ in Multi-Robot World-Model Imagination}
+
+% CHANGED: fixed typo "Aswim" -> "Aswin"
+\author{\IEEEauthorblockN{Aswin Mylraj, Jonathan Zhu, and Timothy Byles-Ho}
+\IEEEauthorblockA{ECE 780 T13 Robot Learning, University of Waterloo\\
+Project Proposal, Fall 2026}}
+
+\maketitle
+
+% CHANGED: reverted TBH's abstract edit. The method is not "extending the imagination
+% horizon"; it is rebuilding the communication graph at every imagined step (plus
+% realistic links). Horizon is something we vary to see when the frozen graph fails.
+\begin{abstract}
+CoDreamer extends the DreamerV3 world-model agent to multi-robot teams by passing messages over a communication graph built from robot positions, but it keeps that graph fixed during imagination and assumes perfect, unlimited links. We propose to rebuild the graph at every imagined step from positions predicted by the world model, with links that fail more often over longer distances and a cap on how many neighbours each robot can hear. We will evaluate the approach in the VMAS multi-robot simulator, measuring graph accuracy, world-model prediction error, sample efficiency and task return.
+\end{abstract}
+
+\section{Problem}
+Robot swarms coordinate over short-range radios with limited capacity. Crazyswarm, for example, controls 49 nano-drones through radios that carry up to 2\,Mbit/s in 32-byte packets~\cite{preiss2017crazyswarm}, and robots in the DARPA SubT Finals had only intermittent connectivity to their base station~\cite{saboia2022achord}. Which robots can communicate therefore changes as they move, and each robot can receive only a limited amount of data.
+
+DreamerV3 learns a recurrent state-space model (RSSM) and trains an actor and critic entirely on imagined rollouts, outperforming tuned specialist methods on more than 150 tasks with one configuration~\cite{hafner2025nature}. CoDreamer~\cite{toledo2024codreamer} extends it to multiple agents with graph attention (GATv2~\cite{brody2022gatv2}) message passing over a graph that connects agents within a range $C$. Two assumptions limit its use on real swarms. First, it reuses the graph from the first imagined step for all $H$ steps, so imagined messages travel over links that no longer exist and miss links that have formed. Second, every link within range is perfect, and a robot receives a full message from every neighbour at every step, so incoming data grows with swarm density.
+
+% CHANGED: accepted TBH's edit (removed "and at what cost?") but kept the question mark,
+% since this is a question.
+\textbf{Research question.} \emph{Does predicting a realistic, capacity-limited communication topology inside imagination improve world-model accuracy and policy learning for robot swarms?}
+
+\section{Related Work}
+Most multi-agent world models let every agent draw on information from every other agent. MAMBA~\cite{egorov2022mamba} uses a transformer communication block, MARIE~\cite{zhang2024marie} aggregates all agents with a Perceiver and DIMA~\cite{zhang2025dima} models agents sequentially with a diffusion-inspired world model. MA-Dreamer~\cite{lobos2022madreamer} trains with a centralized global model and sends a small set of discrete symbols at execution, and Dreamer-CPC~\cite{takayama2026dreamercpc} learns messages from latent states. None of these models range, packet loss or receive capacity. CoDreamer is the only one with a distance-based graph, and it freezes that graph during imagination. Song and Cai show that graph world models need changing edges when structure evolves~\cite{song2026gwm}, but they do not study multi-robot control.
+
+\section{Proposed Approach}
+\textbf{Base agents.} No public CoDreamer code is available, so we will reimplement IDreamer, which gives each agent a DreamerV3 RSSM with shared weights, and CoDreamer, using the 12M-parameter DreamerV3 configuration.
+
+% CHANGED: kept TBH's "distance-based" (correct: an edge exists when two robots are
+% within range C) and removed the "(please check)" note.
+\textbf{Graph rebuilding.} A small network on each model state predicts the robot's position $\hat p_k^i$ at imagined step $k$, trained with a symlog squared loss. The distance-based graph is rebuilt from these predictions at every step, and distance edge features are recomputed.
+
+% CHANGED: "Following" -> "Inspired by". Tolstaya et al. use free-space path loss with an
+% SINR threshold, not this log-distance + sigmoid model.
+% CHANGED: TBH was right that sigma and s were undefined. Both are now defined, and his
+% note is removed.
+\textbf{Realistic links.} Inspired by the path-loss model used for robot teams in~\cite{tolstaya2021connectivity}, we use a log-distance model in which the probability that a message from robot $j$ reaches robot $i$ falls with distance $d_{ij}$:
+\begin{equation}
+p_{ij} = \sigma\!\left(\big(P_0-10\,\eta\log_{10}(d_{ij}/d_0)-P_{\mathrm{th}}\big)/s\right),
+\end{equation}
+where $\sigma$ is the sigmoid function, $P_0$ is the received power at a reference distance $d_0$, $\eta$ is the path-loss exponent, $P_{\mathrm{th}}$ is the receiver threshold and $s$ (in dB) sets how gradually delivery drops off around the threshold. On real data, each link is sampled as delivered or dropped with probability $p_{ij}$. In imagination, $p_{ij}$ scales the GATv2 attention weights.
+
+% CHANGED: kept TBH's deletion of the tie-breaking detail. Removed the 8/16-value 8-bit
+% message bottleneck to keep scope down (it would be a third change on top of the two
+% we ablate). Re TBH's question: yes, it is realistic (16 values x 8 bits = 16 bytes,
+% which fits one 32-byte Crazyflie packet), so it is a good future-work item.
+\textbf{Receive capacity.} Each robot listens to at most $k$ neighbours, chosen as the $k$ nearest robots whose messages arrive.
+
+\textbf{Feasibility check.} Before training, we will measure how often the distance-based graph changes over 15 and 30 steps. If it rarely changes, we will tune robot speed or communication range, within physically plausible values and before training any method, until it does, and report graph accuracy and world-model error as the main results.
+
+\section{Experimental Plan}
+% CHANGED: reverted TBH's description of the 2x2 ablation. The two factors are
+% (1) frozen vs. rebuilt graph and (2) perfect vs. realistic links. Horizon is NOT one
+% of the ablation factors; it is varied separately. Following TBH's point that the
+% ablation needed to be more explicit, it is now spelled out in Table I.
+% CHANGED: scope reduced to fit free compute (laptop GPU + Kaggle):
+%  - swarm sizes: 4 and 8 robots (agrees with TBH's "up to 8"); 16 as a stretch goal
+%  - Discovery only; Flocking is a stretch goal
+%  - RL runs at horizon 15; longer horizons measured offline on world-model accuracy
+%  - seeds 5 -> 3
+%  - removed "short ranges" (range is not a factor)
+%  - removed the cost metrics and nano-drone remark; also fixes the broken
+%    "collisions, ." sentence left after TBH's deletion
+% This is 6 methods x 2 sizes x 3 seeds = 36 training runs.
+We use VMAS~\cite{bettini2022vmas} to simulate robots completing the Discovery task, where communication matters most, using LIDAR-style local observations. Our central comparison is a two-by-two ablation that changes one thing at a time (Table~\ref{tab:ablation}): during imagination, the communication graph is either \emph{frozen} at the first step or \emph{rebuilt} at every step, and links are either \emph{perfect} (every robot in range receives every message) or \emph{realistic} (messages are dropped with the path-loss model and each robot hears at most $k$ neighbours). Frozen graphs with perfect links reproduce CoDreamer and serve as our main baseline.
+
+\begin{table}[h]
+\centering
+\caption{Two-by-two ablation}
+\label{tab:ablation}
+\begin{tabular}{@{}lll@{}}
+\toprule
+ & \textbf{Perfect links} & \textbf{Realistic links} \\
+\midrule
+\textbf{Frozen graph} & CoDreamer (baseline) & Realistic links only \\
+\textbf{Rebuilt graph} & Rebuilding only & Full method \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All four variants are also evaluated under realistic links at deployment, which shows how much perfect-link training overestimates performance. Independent PPO and IDreamer serve as model-free and model-based baselines without communication. We test swarms of 4 and 8 robots, with 16 robots and the Flocking task as stretch goals, using an imagination horizon of 15 steps for policy learning. Separately from the ablation, we measure graph accuracy at longer horizons (30 and 50 steps) offline from the trained world models. We expect the graph-accuracy gap between rebuilt and frozen graphs to widen with horizon and swarm size, and realistic links to lower the returns of every variant. We measure graph accuracy as the F1 score between imagined and true edges, reward-prediction error, sample efficiency, final return and collisions. We report interquartile means with 95\% bootstrap confidence intervals over three seeds~\cite{agarwal2021precipice}.
+
+\section{Expected Contributions}
+% CHANGED: reverted TBH's contribution 2. Varying horizon and swarm size on plain
+% CoDreamer would not test our method; the ablation is what separates the effect of
+% rebuilding the graph from the effect of realistic links.
+\begin{enumerate}
+\item A multi-robot world model that rebuilds a probabilistic, capacity-limited communication graph at every imagined step.
+\item A two-by-two ablation that separates the effect of rebuilding the graph from the effect of realistic links, showing when frozen graphs fail across horizon and swarm size.
+\item A comparison with model-free and model-based baselines covering world-model accuracy, sample efficiency and task performance.
+\end{enumerate}
+
+{\hbadness=10000
+\begin{thebibliography}{99}
+\bibitem{preiss2017crazyswarm} J.~A.~Preiss, W.~H\"onig, G.~S.~Sukhatme, and N.~Ayanian, ``Crazyswarm: A large nano-quadcopter swarm,'' in \emph{Proc. ICRA}, 2017.
+\bibitem{saboia2022achord} M.~Saboia, L.~Clark, V.~Thangavelu \emph{et~al.}, ``ACHORD: Communication-aware multi-robot coordination with intermittent connectivity,'' arXiv:2206.02245, 2022.
+\bibitem{hafner2025nature} D.~Hafner, J.~Pasukonis, J.~Ba, and T.~Lillicrap, ``Mastering diverse control tasks through world models,'' \emph{Nature}, vol.~640, pp.~647--653, 2025.
+\bibitem{toledo2024codreamer} E.~Toledo and A.~Prorok, ``CoDreamer: Communication-based decentralised world models,'' arXiv:2406.13600, 2024.
+\bibitem{brody2022gatv2} S.~Brody, U.~Alon, and E.~Yahav, ``How attentive are graph attention networks?'' in \emph{Proc. ICLR}, 2022.
+\bibitem{egorov2022mamba} V.~Egorov and A.~Shpilman, ``Scalable multi-agent model-based reinforcement learning,'' in \emph{Proc. AAMAS}, 2022.
+\bibitem{zhang2024marie} Y.~Zhang \emph{et~al.}, ``Decentralized transformers with centralized aggregation are sample-efficient multi-agent world models,'' arXiv:2406.15836, 2024.
+\bibitem{zhang2025dima} Y.~Zhang \emph{et~al.}, ``Revisiting multi-agent world modeling from a diffusion-inspired perspective,'' arXiv:2505.20922, 2025.
+\bibitem{lobos2022madreamer} K.~Lobos-Tsunekawa, A.~Srinivasan, and M.~Spranger, ``MA-Dreamer: Coordination and communication through shared imagination,'' arXiv:2204.04687, 2022.
+\bibitem{takayama2026dreamercpc} T.~Takayama, N.~Yoshida, and T.~Taniguchi, ``Dreamer-CPC: Message learning with world models for decentralized multi-agent reinforcement learning,'' arXiv:2607.19809, 2026.
+\bibitem{song2026gwm} X.~Song and Z.~Cai, ``Understanding rollout error in graph world models,'' arXiv:2606.27780, 2026.
+\bibitem{tolstaya2021connectivity} E.~Tolstaya, L.~Butler, D.~Mox, J.~Paulos, V.~Kumar, and A.~Ribeiro, ``Learning connectivity for data distribution in robot teams,'' arXiv:2103.05091, 2021.
+\bibitem{bettini2022vmas} M.~Bettini, R.~Kortvelesy, J.~Blumenkamp, and A.~Prorok, ``VMAS: A vectorized multi-agent simulator for collective robot learning,'' in \emph{Proc. DARS}, 2022.
+\bibitem{agarwal2021precipice} R.~Agarwal, M.~Schwarzer, P.~S.~Castro, A.~Courville, and M.~Bellemare, ``Deep reinforcement learning at the edge of the statistical precipice,'' in \emph{Proc. NeurIPS}, 2021.
+\end{thebibliography}}
+
+\end{document}

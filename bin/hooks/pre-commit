@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly max_file_kb=1024
+repo_root=${BUILD_WORKSPACE_DIRECTORY:-$(git rev-parse --show-toplevel)}
+cd "$repo_root"
+
+fail() {
+  echo "pre-commit: $1" >&2
+  exit 1
+}
+
+bazel_run() {
+  bazel run --ui_event_filters=-info --noshow_progress --show_result=0 "$@"
+}
+
+command -v bazel >/dev/null || fail "bazel not found. Run bin/setup-repo.sh."
+
+has_large_file=false
+while IFS= read -r -d '' path; do
+  size_bytes=$(git cat-file -s ":$path")
+  if (( size_bytes > max_file_kb * 1024 )); then
+    echo "pre-commit: $path is $(( size_bytes / 1024 )) KB, limit is $max_file_kb KB" >&2
+    has_large_file=true
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+[[ "$has_large_file" == false ]] || fail "large files staged. Keep checkpoints and logs out of git."
+
+"$repo_root/bin/uv" lock --check || fail "uv.lock does not match pyproject.toml. Run uv lock."
+
+python_files=()
+while IFS= read -r -d '' path; do
+  python_files+=("$repo_root/$path")
+done < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.py')
+if (( ${#python_files[@]} )); then
+  bazel_run @ruff//:bin -- check "${python_files[@]}"
+  bazel_run @ruff//:bin -- format --check "${python_files[@]}"
+fi
+
+bazel_run @gitleaks//:bin -- git --staged --redact --no-banner "$repo_root"

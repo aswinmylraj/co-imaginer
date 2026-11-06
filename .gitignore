@@ -1,0 +1,12 @@
+.knowledge/
+.envrc
+.venv/
+.agents/
+/bazel-*
+MODULE.bazel.lock
+build/
+__pycache__/
+.ruff_cache/
+.pytest_cache/
+.claude/settings.local.json
+documentation/**/*.pdf

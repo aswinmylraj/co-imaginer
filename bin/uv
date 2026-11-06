@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+exec bazel run --ui_event_filters=-info --noshow_progress --show_result=0 @uv//:bin -- --directory "${BUILD_WORKING_DIRECTORY:-$PWD}" "$@"
