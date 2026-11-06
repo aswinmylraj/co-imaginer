@@ -1,7 +1,5 @@
 # project-co-imaginer
 
-ECE 780 T13 project: dynamic communication graphs in multi-robot world-model imagination.
-
 ## Setup (Ubuntu)
 
 ```bash
