@@ -65,7 +65,7 @@ write_report() {
 \newcommand{\progresscommit}{$(git rev-parse HEAD)}
 
 \title{Progress report}
-\author{ECE 780 T13}
+\author{}
 \date{$today}
 
 \begin{document}

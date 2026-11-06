@@ -1,6 +1,6 @@
 # Execution Plan: Dynamic Communication Graphs in Multi-Robot World-Model Imagination
 
-ECE 780 T13 Robot Learning | AM, JZ, TKBH | Plan date: 6 November 2026
+AM, JZ, TKBH | Plan date: 6 November 2026
 
 **Fixed dates:** midterm 13 Nov, experiment freeze 25 Nov, presentation 27 Nov or week of 4 Dec, report due 7 Dec.
 

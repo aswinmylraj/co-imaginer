@@ -54,7 +54,7 @@ Grading: technical depth 30, experiments 25, clarity 20, originality 15, relevan
 - documentation/proposal_submitted.tex: proposal as submitted (team version).
 - documentation/progress-<date>.tex: progress reports. PDFs next to them are generated and ignored.
 - PLAN.md: 16 dated action items with hardware, software and deadline.
-- 2301.04104v2.pdf (DreamerV3) and ECE780_Course_Outline.pdf: add these yourself.
+- 2301.04104v2.pdf (DreamerV3) and the course outline PDF: add these yourself.
 
 ## Known follow-ups for the final report
 - Add cost metrics and the return against GPU-hours trade-off.
