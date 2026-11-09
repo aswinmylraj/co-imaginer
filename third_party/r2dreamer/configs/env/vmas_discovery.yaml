@@ -1,0 +1,26 @@
+task: 'vmas_discovery'
+steps: 4e5
+env_num: 16
+eval_episode_num: 32
+action_repeat: 1
+train_ratio: 512
+time_limit: 100
+n_agents: 4
+scenario:
+  n_targets: 7
+  lidar_range: 0.35
+  covering_range: 0.25
+  agents_per_target: 2
+  targets_respawn: True
+  shared_reward: True
+
+seed: ${seed}
+device: ${device}
+
+size: null
+encoder:
+  mlp_keys: 'vector'
+  cnn_keys: '$^'
+decoder:
+  mlp_keys: 'vector'
+  cnn_keys: '$^'
