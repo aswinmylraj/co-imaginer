@@ -2,8 +2,9 @@ from contextlib import nullcontext
 
 import pytest
 import torch
-from co_imaginer.run import Checkpointer, load_run_config
 from omegaconf.errors import ConfigKeyError
+
+from co_imaginer.run import Checkpointer, load_run_config
 
 
 @pytest.mark.parametrize(
