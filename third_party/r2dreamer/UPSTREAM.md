@@ -13,6 +13,9 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
 - `trainer.py`: saves agent and optimizer state through the checkpointer at each metrics log, every `checkpoint_minutes`.
 - `envs/dmc.py`, `envs/__init__.py`: `should_render_image` turns off the 64x64 camera image. Upstream renders it every step even in proprio mode, which costs a GPU render context per env worker and 12 KB per buffer slot.
 - `configs/env/dmc_proprio.yaml`: `should_render_image: False`.
+- `envs/__init__.py`: a `vmas` suite builds `co_imaginer.vmas_agents.VmasAgents`, where each robot in each VMAS world is one batch row. This is IDreamer: one shared DreamerV3, no messages.
+- `configs/env/vmas_discovery.yaml` (new): 4 robots, 4 worlds, 100-step episodes, Discovery settings matching BenchMARL (`shared_reward: True`).
+- `train.py`: VMAS runs are named `idreamer_<task>_n<robots>_s<seed>`.
 - `configs/configs.yaml`: default env `dmc_proprio`, adds `wandb_project` and `checkpoint_minutes`.
 - `configs/model/_base_.yaml`: default `rep_loss` is `dreamer`.
 

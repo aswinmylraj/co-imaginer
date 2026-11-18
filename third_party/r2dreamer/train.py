@@ -35,7 +35,9 @@ def main(config):
 
     print("Logdir", logdir)
 
-    run_name = f"dreamerv3_{config.env.task}_s{config.seed}"
+    method = "idreamer" if "n_agents" in config.env else "dreamerv3"
+    agents = f"_n{config.env.n_agents}" if "n_agents" in config.env else ""
+    run_name = f"{method}_{config.env.task}{agents}_s{config.seed}"
     writer = WandbLogger(
         exp_name=run_name,
         save_dir=str(logdir),

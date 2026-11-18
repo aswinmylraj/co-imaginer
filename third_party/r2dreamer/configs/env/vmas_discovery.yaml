@@ -1,0 +1,26 @@
+task: 'vmas_discovery'
+steps: 1e5
+num_worlds: 4
+n_agents: 4
+max_steps: 100
+eval_episode_num: 0
+action_repeat: 1
+train_ratio: 512
+scenario_kwargs:
+  shared_reward: True
+  n_targets: 7
+  lidar_range: 0.35
+  covering_range: 0.25
+  agents_per_target: 2
+  targets_respawn: True
+
+seed: ${seed}
+device: ${device}
+
+size: [64, 64]
+encoder:
+  mlp_keys: '.*'
+  cnn_keys: '$^'
+decoder:
+  mlp_keys: '.*'
+  cnn_keys: '$^'
