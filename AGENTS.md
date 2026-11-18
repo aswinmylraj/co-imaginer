@@ -47,6 +47,7 @@ Grading: technical depth 30, experiments 25, clarity 20, originality 15, relevan
 ## Files in this folder
 - AGENTS.md: this file, the rules for every agent. Claude Code reads it directly, so there is no CLAUDE.md.
 - README.md: setup steps, 200 words at most.
+- WANDB_SETUP.md: W&B account, API key and offline logging.
 - bin/setup-repo.sh: apt packages, .envrc, git hooks and .agents/PONYTAIL_RULES.md.
 - bin/setup-bazel.sh: bazelisk, the pinned tools and `uv sync`.
 - bin/generate-documentation.sh: switches to main, pulls, and writes `documentation/progress-<date>.tex` (commit hash, changes, benchmarks) from the git diff since the previous progress file. An LLM writes the changes section following this file. `DOCUMENTATION_LLM` picks it: `claude` (default) or `ollama:<model>`. Builds the PDFs of every tex file in `documentation/`. Leaves the new file uncommitted.
