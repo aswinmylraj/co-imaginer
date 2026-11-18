@@ -9,6 +9,7 @@ dependencies = [
   "torchrl==0.11.1",
   "torchvision==0.25.0",
   "vmas==1.5.2",
+  "wandb==0.31.0",
 ]
 
 [dependency-groups]
@@ -26,3 +27,7 @@ torchvision = { index = "pytorch-cu126" }
 name = "pytorch-cu126"
 url = "https://download.pytorch.org/whl/cu126"
 explicit = true
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
