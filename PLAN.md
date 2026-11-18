@@ -26,7 +26,7 @@ Hardware lists only what training and testing need. Coding work needs no special
 |---|---|---|---|---|
 | 7 | Build CoDreamer: GATv2 layers in the RSSM, reward and continue heads, actor and critic. | Nil | torch-geometric 2.8.1 (GATv2Conv) | 23 Nov |
 | 8 | Add the position head and rebuild the graph at every imagined step. Log graph F1 for each step. | Nil | torch-geometric 2.8.1 | 24 Nov |
-| 9 | Add realistic links: path-loss drop sampling, attention scaling in imagination and the k-nearest receive cap. Unit test: delivery probability is 0.5 at distance C and above 0.95 at C/2. | Nil | pytest | 25 Nov |
+| 9 | Add realistic links: path-loss drop sampling, attention scaling in imagination and the learned k-neighbour receive cap (scorer and straight-through Gumbel top-k). Unit tests: delivery probability is 0.5 at distance C and above 0.95 at C/2. With k or fewer neighbours in range, all are selected. With more than k, exactly k are selected and gradients reach the scorer. | Nil | pytest | 25 Nov |
 | 10 | Write evaluation scripts: realistic-link deployment test and offline graph F1 at 15, 30 and 50 imagined steps. | Nil | Nil | 25 Nov |
 | 11 | Train Priority 1: 6 methods (IPPO, IDreamer and the four ablation variants) on Discovery with 4 robots, horizon 15, 3 seeds. 18 runs, 6 GPU-hours or less each. | RTX 4060 (8 GB), 3 Kaggle accounts (about 30 GPU-hours per week each) | Nil | 29 Nov |
 
