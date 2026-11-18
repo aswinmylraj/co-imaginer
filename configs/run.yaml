@@ -1,0 +1,14 @@
+seed: 0
+task: discovery
+n_agents: 4
+method: idreamer
+graph_mode: frozen
+link_model: perfect
+horizon: 15
+env_steps: null
+comm_range: null
+robot_speed: null
+k_receive: null
+checkpoint_minutes: 30
+output_root: runs
+wandb_project: co-imaginer

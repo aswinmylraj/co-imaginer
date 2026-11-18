@@ -7,6 +7,7 @@ cd project-co-imaginer
 export PATH="$PWD/bin:$PATH"
 setup-repo.sh
 setup-bazel.sh
+uv run wandb login
 ```
 
 Both are safe to run again. `setup-bazel.sh` installs Bazel 8.8.2, fetches the pinned uv, ruff and gitleaks, and creates `.venv` with Python 3.13.18. `setup-repo.sh`:
@@ -24,7 +25,7 @@ uv run python train.py
 uv add <package>
 ```
 
-On Kaggle: `pip install uv==0.13.7 && uv sync --locked`.
+On Kaggle: `pip install uv==0.13.7 && uv sync --locked`, and set the W&B key from a Kaggle secret as `WANDB_API_KEY`.
 
 ## Agents
 
