@@ -18,14 +18,16 @@ Both are safe to run again. `setup-bazel.sh` installs Bazel 8.8.2, fetches the p
 - links `bin/hooks/pre-commit` into `.git/hooks` and turns on commit signing
 - downloads the Ponytail rules to `.agents/PONYTAIL_RULES.md`
 
-## Run and train
+## Train
+
+Teaches a simulated robot to walk with DreamerV3 (`third_party/r2dreamer`), about 30 minutes on an RTX 4060.
 
 ```bash
-uv run python train.py
-uv add <package>
+uv sync
+MUJOCO_GL=egl PYTHONPATH=. uv run python third_party/r2dreamer/train.py logdir=runs/walker seed=1 env.steps=1e5 env.eval_episode_num=0
 ```
 
-On Kaggle: `pip install uv==0.13.7 && uv sync --locked`, and set the W&B key from a Kaggle secret as `WANDB_API_KEY`.
+Use your own seed. Kaggle: `pip install uv==0.13.7 && uv sync --locked`, with the W&B key from a Kaggle secret in `WANDB_API_KEY`.
 
 ## Agents
 
