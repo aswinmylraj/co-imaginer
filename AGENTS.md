@@ -3,7 +3,7 @@
 Team: AM, JZ, TKBH. University of Waterloo, Fall 2026, instructor Prof. Firoozi.
 
 ## Project in one paragraph
-CoDreamer (Toledo and Prorok, arXiv:2406.13600) extends DreamerV3 to multiple agents with GATv2 message passing over a graph that connects agents within communication range C. It freezes that graph for all imagined steps and assumes perfect links. We rebuild the graph at every imagined step from positions predicted by the world model, and add realistic links: distance-based packet drops from a path-loss model, and a directed k-nearest receive cap. All variants use the same 15-step imagination horizon.
+CoDreamer (Toledo and Prorok, arXiv:2406.13600) extends DreamerV3 to multiple agents with GATv2 message passing over a graph that connects agents within communication range C. It freezes that graph for all imagined steps and assumes perfect links. We rebuild the graph at every imagined step from positions predicted by the world model, and add realistic links: distance-based packet drops from a path-loss model, and a directed receive cap of k neighbours chosen by a learned scorer. All variants use the same 15-step imagination horizon.
 
 ## Experiment design (from the submitted proposal)
 - 2x2 ablation: graph frozen or rebuilt, links perfect or realistic. Frozen with perfect links reproduces CoDreamer.
