@@ -3,7 +3,7 @@
 Team: AM, JZ, TKBH. University of Waterloo, Fall 2026, instructor Prof. Firoozi.
 
 ## Project in one paragraph
-CoDreamer (Toledo and Prorok, arXiv:2406.13600) extends DreamerV3 to multiple agents with GATv2 message passing over a graph that connects agents within communication range C. It freezes that graph for all imagined steps and assumes perfect links. We rebuild the graph at every imagined step from positions predicted by the world model, and add realistic links: distance-based packet drops from a path-loss model, and a directed k-nearest receive cap. All variants use the same 15-step imagination horizon.
+CoDreamer (Toledo and Prorok, arXiv:2406.13600) extends DreamerV3 to multiple agents with GATv2 message passing over a graph that connects agents within communication range C. It freezes that graph for all imagined steps and assumes perfect links. We rebuild the graph at every imagined step from positions predicted by the world model, and add realistic links: distance-based packet drops from a path-loss model, and a directed receive cap of k neighbours chosen by a learned scorer. All variants use the same 15-step imagination horizon.
 
 ## Experiment design (from the submitted proposal)
 - 2x2 ablation: graph frozen or rebuilt, links perfect or realistic. Frozen with perfect links reproduces CoDreamer.
@@ -47,6 +47,7 @@ Grading: technical depth 30, experiments 25, clarity 20, originality 15, relevan
 ## Files in this folder
 - AGENTS.md: this file, the rules for every agent. Claude Code reads it directly, so there is no CLAUDE.md.
 - README.md: setup steps, 200 words at most.
+- WANDB_SETUP.md: W&B account, API key and offline logging.
 - bin/setup-repo.sh: apt packages, .envrc, git hooks and .agents/PONYTAIL_RULES.md.
 - bin/setup-bazel.sh: bazelisk, the pinned tools and `uv sync`.
 - bin/generate-documentation.sh: switches to main, pulls, and writes `documentation/progress-<date>.tex` (commit hash, changes, benchmarks) from the git diff since the previous progress file. An LLM writes the changes section following this file. `DOCUMENTATION_LLM` picks it: `claude` (default) or `ollama:<model>`. Builds the PDFs of every tex file in `documentation/`. Leaves the new file uncommitted.
