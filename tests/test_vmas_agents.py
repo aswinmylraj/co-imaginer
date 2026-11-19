@@ -41,3 +41,6 @@ def test_step(
     assert torch.equal(transition["is_first"][:, 0], rows(expected_first_worlds))
     assert torch.equal(is_last, rows(expected_last_worlds))
     assert torch.all(transition["reward"][rows(expected_first_worlds)] == 0)
+    assert not transition["is_terminal"].any()
+    assert transition["log_collisions"].shape == (env.env_num, 1)
+    assert torch.all(transition["log_collisions"][rows(expected_first_worlds)] == 0)
