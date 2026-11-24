@@ -6,8 +6,11 @@ graph_mode: frozen
 link_model: perfect
 horizon: 15
 env_steps: null
-comm_range: null
-robot_speed: null
+# Fixed by the churn check (PLAN.md item 3, co_imaginer/churn.py, runs/churn/sweep.csv).
+# At C 0.5 and speed 1.0, 28 percent of edges change within 15 steps (4 robots,
+# random policy), above the 10 percent minimum. Previous value: null for both.
+comm_range: 0.5
+robot_speed: 1.0
 k_receive: null
 checkpoint_minutes: 30
 output_root: runs
