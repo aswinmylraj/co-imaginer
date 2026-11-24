@@ -27,6 +27,9 @@ buffer:
   storage_device: ${device}
   online: True
   update_latents: False
+  # CoDreamer samples whole worlds (all robots, same time window) from replay.
+  aligned: ${model.comm.enabled}
+  n_agents: ${model.comm.n_agents}
 
 trainer:
   steps: ${env.steps}

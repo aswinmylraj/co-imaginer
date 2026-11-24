@@ -57,6 +57,13 @@ class Buffer:
         )
         self._online = OnlineQueue(self.batch_length + 1, 2 * self.batch_size) if config.online else None
         self._update_latents = bool(config.update_latents)
+        # CoDreamer needs every robot of a world in the batch, over the same time
+        # window, so messages can pass between them. IDreamer keeps the original
+        # SliceSampler, which picks robot sequences independently.
+        self._aligned = bool(config.get("aligned", False))
+        self._n_agents = int(config.get("n_agents", 1))
+        if self._aligned and self.batch_size % self._n_agents:
+            raise ValueError("batch_size must be a multiple of n_agents for world-aligned sampling")
 
     def add_transition(self, data):
         # This is batched data and lifted for storage.
@@ -69,8 +76,10 @@ class Buffer:
         # Freshly collected windows take precedence for training. Logging can sample
         # regular replay without consuming a window reserved for learning.
         ready = self._online.take(self.batch_size) if prefer_online and self._online is not None else None
-        if ready is not None:
+        if ready is not None and (not self._aligned or self._worlds_intact(ready[1])):
             return self._online_batch(ready)
+        if self._aligned:
+            return self._sample_worlds()
         sample_td, info = self._buffer.sample(return_info=True)
         # The sampler returns a flattened batch of length B*(T+1).
         # (B*(T+1), ...) -> (B, T+1, ...)
@@ -81,6 +90,45 @@ class Buffer:
         data = sample_td[:, 1:]
         data.set_("action", sample_td["action"][:, :-1].clone())  # action is 1 step back
         index = [ind.view(-1, self.batch_length + 1)[:, 1:] for ind in info["index"]]
+        return data, index, initial
+
+    def _worlds_intact(self, envs):
+        # Online windows come out in robot-row order. They are usable for CoDreamer
+        # only if every group of n_agents rows is one complete world in order,
+        # for example rows 4, 5, 6, 7 and not rows 5, 6, 7, 8.
+        rows = envs.view(-1, self._n_agents)
+        expected = rows[:, :1] + torch.arange(self._n_agents, device=envs.device)
+        return bool((rows[:, 0] % self._n_agents == 0).all() and (rows == expected).all())
+
+    def _sample_worlds(self):
+        storage = self._buffer.storage
+        # Storage is a (time slot, robot row) grid. Each time slot holds every
+        # robot's transition from one environment step, written in a circle.
+        filled, n_rows = storage.shape
+        capacity = storage._storage.batch_size[0]
+        length = self.batch_length + 1
+        worlds = self.batch_size // self._n_agents
+        device = storage._storage.device
+        # Once the circle is full, the oldest slot is the next one to be written.
+        # A window must not run past the newest slot into the oldest one.
+        oldest = self._buffer._writer._cursor % capacity if filled == capacity else 0
+        age = torch.randint(0, filled - length + 1, (worlds,), device=device)
+        steps = torch.arange(length, device=device)
+        # (worlds, length): the time slots of each sampled window.
+        time = (oldest + age[:, None] + steps) % filled
+        # (worlds, n_agents): the rows of each sampled world, in robot order.
+        world = torch.randint(0, n_rows // self._n_agents, (worlds,), device=device)
+        rows = world[:, None] * self._n_agents + torch.arange(self._n_agents, device=device)
+        # (worlds, n_agents, length) index grids, then (B, length) with B = worlds * n_agents.
+        time_index = time[:, None, :].expand(-1, self._n_agents, -1).reshape(-1, length)
+        row_index = rows[:, :, None].expand(-1, -1, length).reshape(-1, length)
+        sample_td = self._to_device(storage._storage[time_index, row_index])
+        # Same layout as the other paths: step 0 is context for the latent state,
+        # and actions shift one step back.
+        initial = (sample_td["stoch"][:, 0], sample_td["deter"][:, 0])
+        data = sample_td[:, 1:]
+        data.set_("action", sample_td["action"][:, :-1].clone())
+        index = [time_index[:, 1:].to(self.device), row_index[:, 1:].to(self.device)]
         return data, index, initial
 
     def _to_device(self, sample_td):
