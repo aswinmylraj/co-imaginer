@@ -1,0 +1,18 @@
+{
+  "checkpoint": "latest.pt",
+  "step": null,
+  "idreamer": {
+    "episodes": 256,
+    "return_mean": 2.4316,
+    "return_std": 1.3735,
+    "return_sem": 0.0858,
+    "collisions_per_robot": 2.8047
+  },
+  "random": {
+    "episodes": 256,
+    "return_mean": 0.082,
+    "return_std": 0.3148,
+    "return_sem": 0.0197,
+    "collisions_per_robot": 0.3379
+  }
+}
