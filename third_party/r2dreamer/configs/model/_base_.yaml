@@ -1,3 +1,16 @@
+# CoDreamer communication. Off gives IDreamer. Turn on with model.comm.enabled=True.
+comm:
+  enabled: False
+  # Robots per world, taken from the env config (1 for single-agent tasks).
+  n_agents: ${oc.select:env.n_agents,1}
+  # Communication range C, fixed by the churn check (plan item 3).
+  comm_range: 0.5
+  # GATv2 attention heads (concatenated) and total message width. The paper does not give these.
+  heads: 4
+  units: 256
+  # Observation key whose first two numbers are the robot's (x, y) position.
+  position_key: obs
+
 act_entropy: 3e-4
 kl_free: 1.0
 imag_horizon: 15

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torch import nn
 
 import distributions as dists
+from co_imaginer.graph import GraphLayer
 from tools import weight_init_
 
 
@@ -374,10 +375,26 @@ class MLPHead(nn.Module):
             with torch.no_grad():
                 self.last.weight.mul_(self._outscale)
 
-    def forward(self, x):
+    def forward(self, x, graph=None):
         """Produce a distribution head."""
-        # (B, T, F)
+        # (B, T, F). `graph` is accepted and ignored so IDreamer and CoDreamer heads
+        # share one call signature.
         return self._dist(self.last(self.mlp(x)))
+
+
+class GraphMLPHead(MLPHead):
+    # CoDreamer head: one GATv2 layer, then the usual MLP head. Sec. 2.2.2 of
+    # CoDreamer gives reward and continue one layer, Sec. 2.2.3 gives actor and
+    # critic one layer each.
+    def __init__(self, config, inp_dim, comm):
+        message = GraphLayer(inp_dim, int(comm.units), int(comm.heads))
+        # The MLP is built on [own features, received message], hence out_dim.
+        super().__init__(config, message.out_dim)
+        self.message = message
+
+    def forward(self, x, graph=None):
+        # Each robot first mixes in what its neighbours send, then predicts.
+        return super().forward(self.message(x, graph))
 
 
 class Projector(nn.Module):
