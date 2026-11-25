@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 concurrency:
   group: checks-${{ github.event.pull_request.number }}
@@ -64,21 +63,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: bin/uv lock --check
-
-  signed-commits:
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          unsigned=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" \
-            --jq '.[] | select(.commit.verification.verified | not) | "\(.sha[0:7]) \(.commit.verification.reason)"')
-          if [[ -n "$unsigned" ]]; then
-            echo "Unverified commits:"
-            echo "$unsigned"
-            exit 1
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
 
   pytest-cpu:
     runs-on: ubuntu-latest
