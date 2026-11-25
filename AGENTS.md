@@ -28,7 +28,7 @@ These add to the user's general review style.
 - Markdown file names are ALL CAPS with underscores, such as `PLAN.md` and `SYSTEM_INFORMATION.md`.
 - Tests use pytest, one `test_{function}` per function, with new cases added to its `@pytest.mark.parametrize` list.
 - Comments: the only allowed comment is a short source reference for an implemented equation or algorithm, such as `# Eq. 1, proposal` or `# DreamerV3 Sec. 3`. No docstrings.
-- Hooks: `bin/hooks/pre-commit`, linked into `.git/hooks` by `bin/setup-repo.sh`, runs ruff, gitleaks and a large-file check. No hook framework. Never commit checkpoints, logs or Kaggle and W&B tokens.
+- Hooks: `bin/hooks/pre-commit`, linked into `.git/hooks` by `bin/setup-repo.sh`, runs ruff, gitleaks and a large-file check. No hook framework. Never commit checkpoints, logs or W&B tokens.
 - Experiment impact, stated for every proposed fix:
   1. Results: does it change results of runs already finished, breaking the 2x2 comparison?
   2. Cost: GPU-hours and peak GPU memory against the 6-hour cap.
@@ -36,8 +36,7 @@ These add to the user's general review style.
 
 ## Compute
 - This machine: read `.agents/SYSTEM_INFORMATION.md`. `bin/system-info.sh` writes it during setup. Rerun it after hardware changes.
-- Kaggle T4 or P100, about 30 GPU-hours per week per account (unofficial), 12-hour sessions. One account per member.
-- Reserve: rented RTX 4090, 100 CAD cap.
+- Local GPUs only, no cloud: AM RTX 4060 (8 GB), TKBH RTX 5060 Ti, JZ RTX 2070 Super (8 GB, evaluation only).
 - Each run must finish in 6 GPU-hours or less. Checkpoint every 30 minutes.
 
 ## Dates
