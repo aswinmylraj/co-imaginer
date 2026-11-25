@@ -27,7 +27,7 @@ uv sync
 MUJOCO_GL=egl PYTHONPATH=. uv run python third_party/r2dreamer/train.py logdir=runs/walker seed=1 env.steps=1e5 env.eval_episode_num=0
 ```
 
-Use your own seed. Kaggle: `pip install uv==0.13.7 && uv sync --locked`, W&B key in `WANDB_API_KEY` from a Kaggle secret.
+Use your own seed. One PyTorch build covers every RTX 20 series or newer GPU, so everyone runs `uv sync`.
 
 ## Agents
 
