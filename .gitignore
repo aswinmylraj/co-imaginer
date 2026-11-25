@@ -12,3 +12,4 @@ __pycache__/
 documentation/**/*.pdf
 runs/
 wandb/
+logdir/
