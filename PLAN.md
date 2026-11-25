@@ -25,8 +25,8 @@ Hardware lists only what training and testing need. Coding work needs no special
 | 12 | Train Priority 2: the same 18 runs with 8 robots. | TKBH | Not done | RTX 5070 Ti (16 GB), 3 Kaggle accounts, rented RTX 4090 as reserve (100 CAD cap, about 200 GPU-hours) | Nil | 1 Dec |
 | 13 | Evaluate every finished run: realistic-link deployment test and offline graph F1. | JZ | Not done | Kaggle T4 or P100 | Nil | 1 Dec |
 | 14 | Produce figures: learning curves, 2x2 results table, graph F1 against horizon, cost table (wall-clock, GPU memory, imagined steps per second). | JZ | Not done | Nil | matplotlib | 2 Dec |
-| 15 | Build the 15-minute talk and rehearse it once in full. | TKBH | Not done | Nil | Nil | 3 Dec |
-| 16 | Write the 6-page IEEE report. | TKBH | Not done | Nil | Overleaf, IEEE conference template | 6 Dec |
+| 15 | Build the 15-minute talk and rehearse it once in full. | AM, JZ, TKBH | Not done | Nil | Nil | 3 Dec |
+| 16 | Write the 6-page IEEE report. | AM, JZ, TKBH | Not done | Nil | Overleaf, IEEE conference template | 6 Dec |
 | S | Stretch, only if item 12 finishes before 30 Nov: 16 robots, then the Flocking task. | TKBH | Not done | Same as item 12 | Nil | 1 Dec |
 
 ## Rules
