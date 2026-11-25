@@ -27,11 +27,11 @@ uv sync
 MUJOCO_GL=egl PYTHONPATH=. uv run python third_party/r2dreamer/train.py logdir=runs/walker seed=1 env.steps=1e5 env.eval_episode_num=0
 ```
 
-Use your own seed. One PyTorch build covers every RTX 20 series or newer GPU, so everyone runs `uv sync`.
+Use your own seed. RTX 20 series and newer GPUs work with `uv sync` if `nvidia-smi` shows driver 570 or newer.
 
 ## Agents
 
-`AGENTS.md` holds the rules for every agent, Claude Code included. Claude Code enables Ponytail from `.claude/settings.json`, which also covers local models served through Ollama. Other agents read `.agents/PONYTAIL_RULES.md`.
+`AGENTS.md` holds the rules for every agent, Claude Code included. Claude Code enables Ponytail from `.claude/settings.json`, which also covers local Ollama models. Other agents read `.agents/PONYTAIL_RULES.md`.
 
 ## Documentation
 
