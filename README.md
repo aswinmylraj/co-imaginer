@@ -27,7 +27,7 @@ uv sync
 MUJOCO_GL=egl PYTHONPATH=. uv run python third_party/r2dreamer/train.py logdir=runs/walker seed=1 env.steps=1e5 env.eval_episode_num=0
 ```
 
-Use your own seed. RTX 20 series and newer GPUs work with `uv sync` if `nvidia-smi` shows driver 570 or newer.
+Use your own seed. RTX 20 series and newer GPUs work with `uv sync`. Check yours with `uv run pytest tests/test_cuda.py`.
 
 ## Agents
 
