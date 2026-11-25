@@ -16,10 +16,9 @@ CoDreamer (Toledo and Prorok, arXiv:2406.13600) extends DreamerV3 to multiple ag
 - No public CoDreamer code was found. It must be reimplemented.
 
 ## Stack
-Python 3.13.18, torch 2.10.0 (CUDA 12.6 build, supports P100, T4 and RTX 4060), torchrl 0.11.1, vmas 1.5.2, torch-geometric 2.8.1 (GATv2Conv), benchmarl 1.5.2, DreamerV3 base NM512/dreamerv3-torch (archived) or r2dreamer.
+Python 3.13.18, torch 2.10.0 (CUDA 12.8 build from PyPI, supports RTX 2070 Super, RTX 4060 and RTX 5060 Ti), torchrl 0.11.1, vmas 1.5.2, torch-geometric 2.8.1 (GATv2Conv), benchmarl 1.5.2, DreamerV3 base NM512/dreamerv3-torch (archived) or r2dreamer.
 - Python and packages: `pyproject.toml` and `uv.lock`. Run Python with `uv run`, for example `uv run python train.py`. Change dependencies with `uv add` or `uv lock`.
 - Tools: Bazel 8.8.2 (`.bazelversion`) pins uv 0.13.7, ruff 0.17.4 and gitleaks 8.30.1 with checksums in `MODULE.bazel`. `bin/uv` runs the pinned uv. `.bazelignore` keeps `.venv` out of Bazel, so `bazel query //...` and `bazel build //...` stay clean.
-- Kaggle: `pip install uv==0.13.7`, then `uv sync --locked`.
 
 ## Code rules for this repo
 Agents other than Claude Code: also follow `.agents/PONYTAIL_RULES.md`, created by `bin/setup-repo.sh`.
