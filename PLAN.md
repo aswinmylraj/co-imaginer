@@ -14,10 +14,10 @@ Hardware lists only what training and testing need. Coding work needs no special
 | 1 | Set up the repository for training and testing: pinned requirements, one shared run configuration, checkpoint saving every 30 minutes, logging. | AM | Done | Nil | GitHub, Python 3.11, PyTorch (CUDA build), TensorBoard or Weights & Biases | 7 Nov |
 | 2 | Select the DreamerV3 base and confirm it learns on one proprioceptive DMC task. | AM | Done | RTX 4060 (8 GB) | NM512/dreamerv3-torch or r2dreamer, dm_control | 20 Nov |
 | 3 | Churn check: measure the fraction of edges that change over 15 and 30 steps on Discovery with 4 and 8 robots under random and scripted policies. Fix communication range C and robot speed. | JZ | Done | CPU only | vmas 1.5.2 | 20 Nov |
-| 4 | Configure IPPO on Discovery with 4 robots and confirm it beats a random policy. | TKBH | Not done | RTX 5060 Ti | benchmarl 1.5.2 | 21 Nov |
-| 5 | Build IDreamer: wrap VMAS as per-agent environments with shared world-model and policy weights. | AM, JZ | Not done | Nil | vmas 1.5.2, DreamerV3 base from item 2 | 11 Nov |
-| 6 | Train IDreamer with 4 robots until it beats a random policy, and time 100,000 environment steps on the 4060 to set steps per run. | AM | Not done | RTX 4060 (8 GB) | Nil | 22 Nov |
-| 7 | Build CoDreamer: GATv2 layers in the RSSM, reward and continue heads, actor and critic. | AM | Not done | Nil | torch-geometric 2.8.1 (GATv2Conv) | 23 Nov |
+| 4 | Configure IPPO on Discovery with 4 robots and confirm it beats a random policy. | TKBH | Done | RTX 5060 Ti | benchmarl 1.5.2 | 21 Nov |
+| 5 | Build IDreamer: wrap VMAS as per-agent environments with shared world-model and policy weights. | AM, JZ | Done | Nil | vmas 1.5.2, DreamerV3 base from item 2 | 11 Nov |
+| 6 | Train IDreamer with 4 robots until it beats a random policy, and time 100,000 environment steps on the 4060 to set steps per run. | AM | Done | RTX 4060 (8 GB) | Nil | 22 Nov |
+| 7 | Build CoDreamer: GATv2 layers in the RSSM, reward and continue heads, actor and critic. | AM | Done | Nil | torch-geometric 2.8.1 (GATv2Conv) | 23 Nov |
 | 8 | Add the position head and rebuild the graph at every imagined step. Log graph F1 for each step. | AM | Not done | Nil | torch-geometric 2.8.1 | 24 Nov |
 | 9 | Add realistic links: path-loss drop sampling, attention scaling in imagination and the learned k-neighbour receive cap (scorer and straight-through Gumbel top-k). Unit tests: delivery probability is 0.5 at distance C and above 0.95 at C/2. With k or fewer neighbours in range, all are selected. With more than k, exactly k are selected and gradients reach the scorer. | AM | Not done | Nil | pytest | 25 Nov |
 | 10 | Write evaluation scripts: realistic-link deployment test and offline graph F1 at 15, 30 and 50 imagined steps. | JZ | Not done | Nil | Nil | 25 Nov |

@@ -6,8 +6,8 @@ graph_mode: frozen
 link_model: perfect
 horizon: 15
 env_steps: null
-comm_range: null
-robot_speed: null
+comm_range: 0.5
+robot_speed: 1.0
 k_receive: null
 checkpoint_minutes: 30
 output_root: runs
