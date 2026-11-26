@@ -18,6 +18,7 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
 - `train.py`: VMAS runs are named `idreamer_<task>_n<robots>_s<seed>`.
 - `configs/configs.yaml`: default env `dmc_proprio`, adds `wandb_project` and `checkpoint_minutes`.
 - `configs/model/_base_.yaml`: default `rep_loss` is `dreamer`.
+- `configs/configs.yaml`: `buffer.max_size` reads `env.buffer_size` and falls back to 5e5. `configs/env/vmas_discovery.yaml` sets 2e5, twice `env.steps`, because the step counter skips reset steps. A Discovery run never fills it, so sampling matches 5e5.
 - CoDreamer (Toledo and Prorok, arXiv:2406.13600), off unless `model.comm.enabled=True`:
   - `configs/model/_base_.yaml`: `comm` block with `comm_range` 0.5, 4 heads, 256-wide messages, `n_agents` from the env.
   - `rssm.py`: one `co_imaginer.graph.GraphLayer` before the posterior network and one before the prior network. `RSSM.graph` builds the graph from positions.
