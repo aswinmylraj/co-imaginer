@@ -9,6 +9,9 @@ def make_envs(config):
     if suite == "isaaclab":
         return _make_isaaclab_envs(config)
 
+    if suite == "vmas":
+        return _make_vmas_envs(config)
+
     def env_constructor(idx):
         return lambda: make_env(config, idx)
 
@@ -21,6 +24,25 @@ def make_envs(config):
     obs_space = train_envs.observation_space
     act_space = train_envs.action_space
     return train_envs, eval_envs, obs_space, act_space
+
+
+def _make_vmas_envs(config):
+    from co_imaginer.vmas_agents import VmasAgents
+
+    def build(num_worlds, seed):
+        return VmasAgents(
+            config.task.split("_", 1)[1],
+            num_worlds,
+            config.n_agents,
+            config.max_steps,
+            seed,
+            config.device,
+            **config.scenario_kwargs,
+        )
+
+    train_envs = build(config.num_worlds, config.seed)
+    eval_envs = build(config.eval_episode_num, config.seed + 1) if config.eval_episode_num > 0 else None
+    return train_envs, eval_envs, train_envs.observation_space, train_envs.action_space
 
 
 def _make_isaaclab_envs(config):
