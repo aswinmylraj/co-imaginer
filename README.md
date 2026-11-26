@@ -27,11 +27,11 @@ uv sync
 MUJOCO_GL=egl PYTHONPATH=. uv run python third_party/r2dreamer/train.py logdir=runs/walker seed=1 env.steps=1e5 env.eval_episode_num=0
 ```
 
-Use your own seed. Kaggle: `pip install uv==0.13.7 && uv sync --locked`, W&B key in `WANDB_API_KEY` from a Kaggle secret.
+Use your own seed. RTX 20 series and newer GPUs work with `uv sync`. Check yours with `uv run pytest tests/test_cuda.py`.
 
 ## Agents
 
-`AGENTS.md` holds the rules for every agent, Claude Code included. Claude Code enables Ponytail from `.claude/settings.json`, which also covers local models served through Ollama. Other agents read `.agents/PONYTAIL_RULES.md`.
+`AGENTS.md` holds the rules for every agent, Claude Code included. Claude Code enables Ponytail from `.claude/settings.json`, which also covers local Ollama models. Other agents read `.agents/PONYTAIL_RULES.md`.
 
 ## Documentation
 

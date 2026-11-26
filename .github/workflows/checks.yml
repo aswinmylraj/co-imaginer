@@ -1,0 +1,72 @@
+name: checks
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  BAZEL_RUN: bazel run --ui_event_filters=-info --noshow_progress --show_result=0
+
+jobs:
+  ruff-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: $BAZEL_RUN @ruff//:bin -- check "$GITHUB_WORKSPACE"
+
+  ruff-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: $BAZEL_RUN @ruff//:bin -- format --check "$GITHUB_WORKSPACE"
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: $BAZEL_RUN @gitleaks//:bin -- git --redact --no-banner --log-opts="$BASE_SHA..$HEAD_SHA" "$GITHUB_WORKSPACE"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  large-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - run: |
+          has_large_file=false
+          while IFS= read -r -d '' path; do
+            size_kb=$(( $(git cat-file -s "$HEAD_SHA:$path") / 1024 ))
+            if (( size_kb > 1024 )); then
+              echo "$path is $size_kb KB, limit is 1024 KB"
+              has_large_file=true
+            fi
+          done < <(git diff --name-only --diff-filter=ACMR -z "$BASE_SHA...$HEAD_SHA")
+          [[ "$has_large_file" == false ]]
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  uv-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: bin/uv lock --check
+
+  pytest-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: bin/uv sync --locked
+      - run: bin/uv run pytest --ignore=tests/test_cuda.py
