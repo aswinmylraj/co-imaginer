@@ -16,10 +16,9 @@ CoDreamer (Toledo and Prorok, arXiv:2406.13600) extends DreamerV3 to multiple ag
 - No public CoDreamer code was found. It must be reimplemented.
 
 ## Stack
-Python 3.13.18, torch 2.10.0 (CUDA 12.6 build, supports P100, T4 and RTX 4060), torchrl 0.11.1, vmas 1.5.2, torch-geometric 2.8.1 (GATv2Conv), benchmarl 1.5.2, DreamerV3 base NM512/dreamerv3-torch (archived) or r2dreamer.
+Python 3.13.18, torch 2.10.0 (CUDA 12.8 build from PyPI, supports RTX 2070 Super, RTX 4060 and RTX 5060 Ti), torchrl 0.11.1, vmas 1.5.2, torch-geometric 2.8.1 (GATv2Conv), benchmarl 1.5.2, DreamerV3 base NM512/dreamerv3-torch (archived) or r2dreamer.
 - Python and packages: `pyproject.toml` and `uv.lock`. Run Python with `uv run`, for example `uv run python train.py`. Change dependencies with `uv add` or `uv lock`.
 - Tools: Bazel 8.8.2 (`.bazelversion`) pins uv 0.13.7, ruff 0.17.4 and gitleaks 8.30.1 with checksums in `MODULE.bazel`. `bin/uv` runs the pinned uv. `.bazelignore` keeps `.venv` out of Bazel, so `bazel query //...` and `bazel build //...` stay clean.
-- Kaggle: `pip install uv==0.13.7`, then `uv sync --locked`.
 
 ## Code rules for this repo
 Agents other than Claude Code: also follow `.agents/PONYTAIL_RULES.md`, created by `bin/setup-repo.sh`.
@@ -28,7 +27,7 @@ These add to the user's general review style.
 - Markdown file names are ALL CAPS with underscores, such as `PLAN.md` and `SYSTEM_INFORMATION.md`.
 - Tests use pytest, one `test_{function}` per function, with new cases added to its `@pytest.mark.parametrize` list.
 - Comments: the only allowed comment is a short source reference for an implemented equation or algorithm, such as `# Eq. 1, proposal` or `# DreamerV3 Sec. 3`. No docstrings.
-- Hooks: `bin/hooks/pre-commit`, linked into `.git/hooks` by `bin/setup-repo.sh`, runs ruff, gitleaks and a large-file check. No hook framework. Never commit checkpoints, logs or Kaggle and W&B tokens.
+- Hooks: `bin/hooks/pre-commit`, linked into `.git/hooks` by `bin/setup-repo.sh`, runs ruff, gitleaks and a large-file check. No hook framework. Never commit checkpoints, logs or W&B tokens.
 - Experiment impact, stated for every proposed fix:
   1. Results: does it change results of runs already finished, breaking the 2x2 comparison?
   2. Cost: GPU-hours and peak GPU memory against the 6-hour cap.
@@ -36,8 +35,7 @@ These add to the user's general review style.
 
 ## Compute
 - This machine: read `.agents/SYSTEM_INFORMATION.md`. `bin/system-info.sh` writes it during setup. Rerun it after hardware changes.
-- Kaggle T4 or P100, about 30 GPU-hours per week per account (unofficial), 12-hour sessions. One account per member.
-- Reserve: rented RTX 4090, 100 CAD cap.
+- Local GPUs only, no cloud: AM RTX 4060 (8 GB), TKBH RTX 5060 Ti, JZ RTX 2070 Super (8 GB, evaluation only).
 - Each run must finish in 6 GPU-hours or less. Checkpoint every 30 minutes.
 
 ## Dates
