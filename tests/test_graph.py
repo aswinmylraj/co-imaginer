@@ -48,7 +48,8 @@ def test_agent_graph(positions, comm_range, expected_edges):
 )
 def test_graph_layer(lead, dense):
     torch.manual_seed(0)
-    graph = AgentGraph(torch.rand(*lead, 2), 4, 0.5)
+    positions = torch.rand(*lead, 2)
+    graph = AgentGraph(positions, 4, 0.5)
     layer = GraphLayer(6, 8, 4, dense)
     x = torch.randn(*lead, 6)
     y = layer(x, graph)
@@ -59,6 +60,11 @@ def test_graph_layer(lead, dense):
     changed = x.clone()
     changed[4:] += 10.0
     assert torch.equal(layer(changed, graph)[:4], y[:4])
+    if dense:
+        explanation = torch._dynamo.explain(
+            lambda x, positions: layer(x, AgentGraph(positions, 4, 0.5))
+        )(x, positions)
+        assert explanation.graph_break_count == 0
 
 
 # The dense GATv2 must match torch_geometric's GATv2Conv on the same weights:
