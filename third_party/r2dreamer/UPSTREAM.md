@@ -31,6 +31,7 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
 ## How to revert CoDreamer
 - Turn it off without touching code: `model.comm.enabled=False`, the default. A test (`tests/test_rssm.py`) checks that the model is then identical to IDreamer, weight for weight.
 - Remove it from the code: `git revert` the CoDreamer commits, or restore the files listed above from the `idreamer-vmas-fixes` branch with `git checkout idreamer-vmas-fixes -- <file>`. Then delete `co_imaginer/graph.py`, `tests/test_graph.py`, `tests/test_buffer.py` and `tests/test_rssm.py`, and set `pythonpath = ["."]` back in `pyproject.toml`.
+- Undo only the dense GATv2 speed fix: run with `model.comm.dense=False` (sparse torch_geometric path, same weights and checkpoints), or `git revert` the dense GATv2 commit.
 - Every CoDreamer change in the code carries a comment that names CoDreamer, the graph or the comm switch, so `git grep -n -i "codreamer\|graph\|comm" third_party/r2dreamer` lists them.
 
 ## Run
