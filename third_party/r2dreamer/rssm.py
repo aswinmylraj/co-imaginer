@@ -3,6 +3,7 @@ from torch import distributions as torchd
 from torch import nn
 
 import distributions as dists
+from co_imaginer.graph import AgentGraph, GraphLayer
 from networks import BlockLinear, LambdaLayer
 from tools import rpad, weight_init_
 
@@ -76,8 +77,11 @@ class Deter(nn.Module):
 
 
 class RSSM(nn.Module):
-    def __init__(self, config, embed_size, act_dim):
+    def __init__(self, config, embed_size, act_dim, comm=None):
         super().__init__()
+        # CoDreamer switch. None keeps the IDreamer RSSM unchanged, so its weights
+        # and random initialisation match the finished IDreamer runs exactly.
+        self._comm = comm if comm is not None and bool(comm.enabled) else None
         self._stoch = int(config.stoch)
         self._deter = int(config.deter)
         self._hidden = int(config.hidden)
@@ -105,6 +109,11 @@ class RSSM(nn.Module):
 
         self._obs_net = nn.Sequential()
         inp_dim = self._deter + embed_size
+        if self._comm is not None:
+            # Sec. 2.2.2, CoDreamer: GNN layer inside the RSSM. Here robots exchange
+            # [recurrent state, observation embedding] before the posterior is formed.
+            self._obs_message = GraphLayer(inp_dim, int(self._comm.units), int(self._comm.heads))
+            inp_dim = self._obs_message.out_dim
         for i in range(self._obs_layers):
             self._obs_net.add_module(f"obs_net_{i}", nn.Linear(inp_dim, self._hidden, bias=True))
             self._obs_net.add_module(f"obs_net_n_{i}", nn.RMSNorm(self._hidden, eps=1e-04, dtype=torch.float32))
@@ -118,6 +127,11 @@ class RSSM(nn.Module):
 
         self._img_net = nn.Sequential()
         inp_dim = self._deter
+        if self._comm is not None:
+            # Same idea for the prior: robots exchange recurrent states before
+            # predicting the next stochastic state without an observation.
+            self._img_message = GraphLayer(inp_dim, int(self._comm.units), int(self._comm.heads))
+            inp_dim = self._img_message.out_dim
         for i in range(self._img_layers):
             self._img_net.add_module(f"img_net_{i}", nn.Linear(inp_dim, self._hidden, bias=True))
             self._img_net.add_module(f"img_net_n_{i}", nn.RMSNorm(self._hidden, eps=1e-04, dtype=torch.float32))
@@ -137,15 +151,24 @@ class RSSM(nn.Module):
         stoch = torch.zeros(batch_size, self._stoch, self._discrete, dtype=torch.float32, device=self._device)
         return stoch, deter
 
-    def observe(self, embed, action, initial, reset):
+    def graph(self, positions):
+        # Builds the communication graph from robot positions, or returns None
+        # for IDreamer so callers can pass the result along without checking.
+        if self._comm is None:
+            return None
+        return AgentGraph(positions, int(self._comm.n_agents), float(self._comm.comm_range))
+
+    def observe(self, embed, action, initial, reset, positions=None):
         """Posterior rollout using observations."""
-        # (B, T, E), (B, T, A), ((B, S, K), (B, D)) (B, T)
+        # (B, T, E), (B, T, A), ((B, S, K), (B, D)) (B, T), positions (B, T, 2) or None
         L = action.shape[1]
         stoch, deter = initial
         stochs, deters, logits = [], [], []
         for i in range(L):
+            # The real graph at step i, built from where the robots actually were.
+            graph = self.graph(positions[:, i]) if self._comm is not None else None
             # (B, S, K), (B, D), (B, S, K)
-            stoch, deter, logit = self.obs_step(stoch, deter, action[:, i], embed[:, i], reset[:, i])
+            stoch, deter, logit = self.obs_step(stoch, deter, action[:, i], embed[:, i], reset[:, i], graph)
             stochs.append(stoch)
             deters.append(deter)
             logits.append(logit)
@@ -155,7 +178,7 @@ class RSSM(nn.Module):
         logits = torch.stack(logits, dim=1)
         return stochs, deters, logits
 
-    def obs_step(self, stoch, deter, prev_action, embed, reset):
+    def obs_step(self, stoch, deter, prev_action, embed, reset, graph=None):
         """Single posterior step."""
         # (B, S, K), (B, D), (B, A), (B, E), (B,)
         stoch = torch.where(rpad(reset, stoch.dim() - int(reset.dim())), torch.zeros_like(stoch), stoch)
@@ -169,6 +192,9 @@ class RSSM(nn.Module):
         deter = self._deter_net(stoch, deter, prev_action)
         # (B, D + E)
         x = torch.cat([deter, embed], dim=-1)
+        if self._comm is not None:
+            # (B, D + E) -> (B, D + E + U): append the message from neighbours.
+            x = self._obs_message(x, graph)
         # (B, S, K)
         logit = self._obs_net(x)
 
@@ -177,20 +203,24 @@ class RSSM(nn.Module):
         stoch = self.get_dist(logit).rsample()
         return stoch, deter, logit
 
-    def img_step(self, stoch, deter, prev_action):
+    def img_step(self, stoch, deter, prev_action, graph=None):
         """Single prior step (no observation)."""
 
         # (B, D)
         deter = self._deter_net(stoch, deter, prev_action)
         # (B, S, K)
-        stoch, _ = self.prior(deter)
+        stoch, _ = self.prior(deter, graph)
         return stoch, deter
 
-    def prior(self, deter):
+    def prior(self, deter, graph=None):
         """Compute prior distribution parameters and sample stoch."""
 
+        x = deter
+        if self._comm is not None:
+            # (..., D) -> (..., D + U): append the message from neighbours.
+            x = self._img_message(x, graph)
         # (B, S, K)
-        logit = self._img_net(deter)
+        logit = self._img_net(x)
         stoch = self.get_dist(logit).rsample()
         return stoch, logit
 

@@ -25,7 +25,7 @@ environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 override-dependencies = ["labmaze; sys_platform == 'never'"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = [".", "third_party/r2dreamer"]
 testpaths = ["tests"]
 
 [tool.ruff]

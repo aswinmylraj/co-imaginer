@@ -37,13 +37,18 @@ class Dreamer(nn.Module):
         shapes = {k: tuple(v.shape) for k, v in obs_space.spaces.items()}
         self.encoder = networks.MultiEncoder(config.encoder, shapes)
         self.embed_size = self.encoder.out_dim
+        # CoDreamer switch (config.comm.enabled). Off builds exactly the IDreamer
+        # model, with the same modules created in the same order.
+        self._comm = config.comm if bool(config.comm.enabled) else None
         self.rssm = rssm.RSSM(
             config.rssm,
             self.embed_size,
             self.act_dim,
+            comm=self._comm,
         )
-        self.reward = networks.MLPHead(config.reward, self.rssm.feat_size)
-        self.cont = networks.MLPHead(config.cont, self.rssm.feat_size)
+        # Sec. 2.2.2, CoDreamer: reward and continue heads communicate, the decoder does not.
+        self.reward = self._head(config.reward, self.rssm.feat_size)
+        self.cont = self._head(config.cont, self.rssm.feat_size)
 
         config.actor.shape = (act_space.n,) if hasattr(act_space, "n") else tuple(map(int, act_space.shape))
         self.act_discrete = False
@@ -56,9 +61,10 @@ class Dreamer(nn.Module):
         else:
             config.actor.dist = config.actor.dist.cont
 
-        # Actor-critic components
-        self.actor = networks.MLPHead(config.actor, self.rssm.feat_size)
-        self.value = networks.MLPHead(config.critic, self.rssm.feat_size)
+        # Actor-critic components. Sec. 2.2.3, CoDreamer: actor and critic each get
+        # their own GNN torso over the world-model state [stoch, deter].
+        self.actor = self._head(config.actor, self.rssm.feat_size)
+        self.value = self._head(config.critic, self.rssm.feat_size)
         self.slow_target_update = int(config.slow_target_update)
         self.slow_target_fraction = float(config.slow_target_fraction)
         self._slow_value = copy.deepcopy(self.value)
@@ -168,6 +174,19 @@ class Dreamer(nn.Module):
             print("Compiling update function with torch.compile...")
             self._cal_grad = torch.compile(self._cal_grad, mode="reduce-overhead")
 
+    def _head(self, head_config, inp_dim):
+        # Plain MLP head for IDreamer, GATv2 then MLP head for CoDreamer.
+        if self._comm is None:
+            return networks.MLPHead(head_config, inp_dim)
+        return networks.GraphMLPHead(head_config, inp_dim, self._comm)
+
+    def _positions(self, data):
+        # Robot (x, y) positions. In VMAS Discovery they are the first two
+        # numbers of each robot's observation vector. None for IDreamer.
+        if self._comm is None:
+            return None
+        return to_f32(data[str(self._comm.position_key)][..., :2])
+
     def _update_slow_target(self):
         """Update slow-moving value target network."""
         if self._slow_value_updates % self.slow_target_update == 0:
@@ -266,11 +285,16 @@ class Dreamer(nn.Module):
             state["deter"],
             state["prev_action"],
         )
+        # Graph of the robots right now. Rows arrive world by world from VmasAgents,
+        # which is the order AgentGraph expects. None for IDreamer.
+        graph = self._frozen_rssm.graph(self._positions(obs))
         # (B, S, K), (B, D)
-        stoch, deter, _ = self._frozen_rssm.obs_step(prev_stoch, prev_deter, prev_action, embed, obs["is_first"])
+        stoch, deter, _ = self._frozen_rssm.obs_step(
+            prev_stoch, prev_deter, prev_action, embed, obs["is_first"], graph
+        )
         # (B, F)
         feat = self._frozen_rssm.get_feat(stoch, deter)
-        action_dist = self._frozen_actor(feat)
+        action_dist = self._frozen_actor(feat, graph)
         # (B, A)
         action = action_dist.mode if eval else action_dist.rsample()
         return action, TensorDict(
@@ -399,10 +423,16 @@ class Dreamer(nn.Module):
         # === World model: posterior rollout and KL losses ===
         # (B, T, E)
         embed = self.encoder(data)
+        # (B, T, 2) robot positions and the real graph at every replayed step.
+        # The replay sampler keeps all robots of a world together (buffer.py).
+        positions = self._positions(data)
+        graph = self.rssm.graph(positions)
         # (B, T, S, K), (B, T, D), (B, T, S, K)
-        post_stoch, post_deter, post_logit = self.rssm.observe(embed, data["action"], initial, data["is_first"])
+        post_stoch, post_deter, post_logit = self.rssm.observe(
+            embed, data["action"], initial, data["is_first"], positions
+        )
         # (B, T, S, K)
-        _, prior_logit = self.rssm.prior(post_deter)
+        _, prior_logit = self.rssm.prior(post_deter, graph)
         dyn_loss, rep_loss = self.rssm.kl_loss(post_logit, prior_logit, self.kl_free)
         losses["dyn"] = torch.mean(dyn_loss)
         losses["rep"] = torch.mean(rep_loss)
@@ -461,9 +491,9 @@ class Dreamer(nn.Module):
             raise NotImplementedError
 
         # reward and continue
-        losses["rew"] = torch.mean(-self.reward(feat).log_prob(to_f32(data["reward"])))
+        losses["rew"] = torch.mean(-self.reward(feat, graph).log_prob(to_f32(data["reward"])))
         cont = 1.0 - to_f32(data["is_terminal"])
-        losses["con"] = torch.mean(-self.cont(feat).log_prob(cont))
+        losses["con"] = torch.mean(-self.cont(feat, graph).log_prob(cont))
         # log
         metrics["dyn_entropy"] = torch.mean(self.rssm.get_dist(prior_logit).entropy())
         metrics["rep_entropy"] = torch.mean(self.rssm.get_dist(post_logit).entropy())
@@ -475,16 +505,22 @@ class Dreamer(nn.Module):
             post_deter.reshape(-1, *post_deter.shape[2:]).detach(),
         )
         # (B, T, ...) -> (B*T, ...)
-        imag_feat, imag_action = self._imagine(start, self.imag_horizon + 1)
+        # Sec. 2.2.3, CoDreamer: imagination keeps the graph of the starting step for
+        # every imagined step (the frozen graph). `graph` has lead (B, T), which
+        # matches the flattened (B*T) start states.
+        imag_feat, imag_action = self._imagine(start, self.imag_horizon + 1, graph)
         imag_feat, imag_action = imag_feat.detach(), imag_action.detach()
+        # The same frozen edges copied along the imagined-time axis, for heads that
+        # see the whole (B*T, T_imag, F) trajectory at once.
+        imag_graph = graph.repeat_steps(self.imag_horizon + 1) if graph is not None else None
 
         # (B*T, T_imag, 1)
-        imag_reward = self._frozen_reward(imag_feat).mode()
+        imag_reward = self._frozen_reward(imag_feat, imag_graph).mode()
         # (B*T, T_imag, 1)  probability of continuation
-        imag_cont = self._frozen_cont(imag_feat).mean
+        imag_cont = self._frozen_cont(imag_feat, imag_graph).mean
         # (B*T, T_imag, 1)
-        imag_value = self._frozen_value(imag_feat).mode()
-        imag_slow_value = self._frozen_slow_value(imag_feat).mode()
+        imag_value = self._frozen_value(imag_feat, imag_graph).mode()
+        imag_slow_value = self._frozen_slow_value(imag_feat, imag_graph).mode()
         disc = 1 - 1 / self.horizon
         # (B*T, T_imag, 1)
         weight = torch.cumprod(imag_cont * disc, dim=1)
@@ -497,13 +533,13 @@ class Dreamer(nn.Module):
         # (B*T, T_imag-1, 1)
         adv = (ret - imag_value[:, :-1]) / ret_scale
 
-        policy = self.actor(imag_feat)
+        policy = self.actor(imag_feat, imag_graph)
         # (B*T, T_imag-1, 1)
         logpi = policy.log_prob(imag_action)[:, :-1].unsqueeze(-1)
         entropy = policy.entropy()[:, :-1].unsqueeze(-1)
         losses["policy"] = torch.mean(weight[:, :-1].detach() * -(logpi * adv.detach() + self.act_entropy * entropy))
 
-        imag_value_dist = self.value(imag_feat)
+        imag_value_dist = self.value(imag_feat, imag_graph)
         # (B*T, T_imag, 1)
         tar_padded = torch.cat([ret, 0 * ret[:, -1:]], 1)
         losses["value"] = torch.mean(
@@ -536,15 +572,16 @@ class Dreamer(nn.Module):
         )
         feat = self.rssm.get_feat(post_stoch, post_deter)
         boot = ret[:, 0].reshape(B, T, 1)
-        value = self._frozen_value(feat).mode()
-        slow_value = self._frozen_slow_value(feat).mode()
+        # Replayed steps use the real graph of each step, not a frozen one.
+        value = self._frozen_value(feat, graph).mode()
+        slow_value = self._frozen_slow_value(feat, graph).mode()
         disc = 1 - 1 / self.horizon
         weight = 1.0 - last
         ret = self._lambda_return(last, term, reward, value, boot, disc, self.lamb)
         ret_padded = torch.cat([ret, 0 * ret[:, -1:]], 1)
 
         # Keep this attached to the world model so gradients can flow through
-        value_dist = self.value(feat)
+        value_dist = self.value(feat, graph)
         losses["repval"] = torch.mean(
             weight[:, :-1]
             * (-value_dist.log_prob(ret_padded.detach()) - value_dist.log_prob(slow_value.detach()))[:, :-1].unsqueeze(
@@ -564,21 +601,22 @@ class Dreamer(nn.Module):
         return (post_stoch, post_deter), metrics
 
     @torch.no_grad()
-    def _imagine(self, start, imag_horizon):
+    def _imagine(self, start, imag_horizon, graph=None):
         """Roll out the policy in latent space."""
-        # (B, S, K), (B, D)
+        # (B, S, K), (B, D). `graph` is the frozen starting graph (CoDreamer) or None.
         feats = []
         actions = []
         stoch, deter = start
         for _ in range(imag_horizon):
             # (B, F)
             feat = self._frozen_rssm.get_feat(stoch, deter)
-            # (B, A)
-            action = self._frozen_actor(feat).rsample()
+            # (B, A). Each robot's action depends on messages from its neighbours.
+            action = self._frozen_actor(feat, graph).rsample()
             # Append feat and its corresponding sampled action at the same time step.
             feats.append(feat)
             actions.append(action)
-            stoch, deter = self._frozen_rssm.img_step(stoch, deter, action)
+            # The prior also exchanges messages over the same frozen graph.
+            stoch, deter = self._frozen_rssm.img_step(stoch, deter, action, graph)
 
         # Stack along sequence dim T_imag.
         # (B, T_imag, F), (B, T_imag, A)

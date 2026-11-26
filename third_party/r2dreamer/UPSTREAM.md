@@ -18,8 +18,23 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
 - `train.py`: VMAS runs are named `idreamer_<task>_n<robots>_s<seed>`.
 - `configs/configs.yaml`: default env `dmc_proprio`, adds `wandb_project` and `checkpoint_minutes`.
 - `configs/model/_base_.yaml`: default `rep_loss` is `dreamer`.
+- CoDreamer (Toledo and Prorok, arXiv:2406.13600), off unless `model.comm.enabled=True`:
+  - `configs/model/_base_.yaml`: `comm` block with `comm_range` 0.5, 4 heads, 256-wide messages, `n_agents` from the env.
+  - `rssm.py`: one `co_imaginer.graph.GraphLayer` before the posterior network and one before the prior network. `RSSM.graph` builds the graph from positions.
+  - `networks.py`: `MLPHead.forward` accepts and ignores a graph. `GraphMLPHead` adds one GATv2 layer before the MLP.
+  - `dreamer.py`: reward, continue, actor and critic use `GraphMLPHead`. The decoder does not. Imagination keeps the starting graph for every step.
+  - `buffer.py`: with `aligned`, replay samples whole worlds over one shared time window.
+  - `configs/configs.yaml`: `buffer.aligned` and `buffer.n_agents` follow `model.comm`.
+  - `train.py`: runs are named `codreamer_<task>_n<robots>_s<seed>`.
+
+## How to revert CoDreamer
+- Turn it off without touching code: `model.comm.enabled=False`, the default. A test (`tests/test_rssm.py`) checks that the model is then identical to IDreamer, weight for weight.
+- Remove it from the code: `git revert` the CoDreamer commits, or restore the files listed above from the `idreamer-vmas-fixes` branch with `git checkout idreamer-vmas-fixes -- <file>`. Then delete `co_imaginer/graph.py`, `tests/test_graph.py`, `tests/test_buffer.py` and `tests/test_rssm.py`, and set `pythonpath = ["."]` back in `pyproject.toml`.
+- Every CoDreamer change in the code carries a comment that names CoDreamer, the graph or the comm switch, so `git grep -n -i "codreamer\|graph\|comm" third_party/r2dreamer` lists them.
 
 ## Run
 `MUJOCO_GL=egl PYTHONPATH=. uv run python third_party/r2dreamer/train.py logdir=runs/<name> env.steps=1e5 env.eval_episode_num=0`
+
+CoDreamer on Discovery: `PYTHONPATH=. uv run python third_party/r2dreamer/train.py env=vmas_discovery model.comm.enabled=True logdir=runs/<name>`
 
 With rendering off, the default 5e5-transition buffer fits the RTX 4060. A 20K-step run peaked at 6.9 GB of 8 GB, desktop included.
