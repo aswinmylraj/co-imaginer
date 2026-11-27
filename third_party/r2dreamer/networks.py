@@ -387,7 +387,8 @@ class GraphMLPHead(MLPHead):
     # CoDreamer gives reward and continue one layer, Sec. 2.2.3 gives actor and
     # critic one layer each.
     def __init__(self, config, inp_dim, comm):
-        message = GraphLayer(inp_dim, int(comm.units), int(comm.heads))
+        # dense=False falls back to the sparse torch_geometric path (same weights).
+        message = GraphLayer(inp_dim, int(comm.units), int(comm.heads), bool(comm.get("dense", True)))
         # The MLP is built on [own features, received message], hence out_dim.
         super().__init__(config, message.out_dim)
         self.message = message
