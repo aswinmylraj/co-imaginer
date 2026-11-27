@@ -216,6 +216,12 @@ class RSSM(nn.Module):
         stoch, _ = self.prior(deter, graph)
         return stoch, deter
 
+    def img_step_rebuilt(self, stoch, deter, prev_action, locate, lead):
+        deter = self._deter_net(stoch, deter, prev_action)
+        graph = self.graph(locate(deter).reshape(*lead, 2))
+        stoch, _ = self.prior(deter, graph)
+        return stoch, deter, graph
+
     def prior(self, deter, graph=None):
         """Compute prior distribution parameters and sample stoch."""
 

@@ -13,6 +13,7 @@ comm:
   dense: True
   # Observation key whose first two numbers are the robot's (x, y) position.
   position_key: obs
+  graph_mode: frozen
 
 act_entropy: 3e-4
 kl_free: 1.0
@@ -45,6 +46,7 @@ loss_scales:
   policy: 1.0
   value: 1.0
   repval: 0.3
+  position: 1.0
   swav: 1.0
   temp: 1.0
   norm: 1.0
@@ -146,6 +148,19 @@ reward:
   device: ${device}
   symlog_inputs: False
   name: 'reward'
+
+position:
+  shape: [2,]
+  layers: 1
+  units: ${model.units}
+  act: ${model.act}
+  norm: ${model.norm}
+  dist:
+    name: 'symlog_mse'
+  outscale: 1.0
+  device: ${device}
+  symlog_inputs: False
+  name: 'position'
 
 cont:
   shape: [1,]

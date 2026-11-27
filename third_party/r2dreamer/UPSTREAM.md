@@ -27,6 +27,13 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
   - `buffer.py`: with `aligned`, replay samples whole worlds over one shared time window.
   - `configs/configs.yaml`: `buffer.aligned` and `buffer.n_agents` follow `model.comm`.
   - `train.py`: runs are named `codreamer_<task>_n<robots>_s<seed>`.
+- Rebuilt graph (PLAN item 8), off unless `model.comm.graph_mode=rebuilt`:
+  - `configs/model/_base_.yaml`: `comm.graph_mode` (`frozen` or `rebuilt`), a `position` head and `loss_scales.position`.
+  - `networks.py`: `MLPHead` accepts the `symlog_mse` distribution.
+  - `rssm.py`: `img_step_rebuilt` predicts positions from the new recurrent state and rebuilds the graph before the prior.
+  - `dreamer.py`: position head trained on real positions, imagination rebuilds the graph at every step, `graph_f1` scores imagined graphs against real ones at steps 1 to 15.
+  - `trainer.py`: logs `train/graph_f1/step_<k>` at every log step.
+  - `train.py`: runs are named `codreamer_rebuilt_<task>_n<robots>_s<seed>`.
 
 ## How to revert CoDreamer
 - Turn it off without touching code: `model.comm.enabled=False`, the default. A test (`tests/test_rssm.py`) checks that the model is then identical to IDreamer, weight for weight.

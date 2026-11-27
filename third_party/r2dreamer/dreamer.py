@@ -11,6 +11,7 @@ from torch.optim.lr_scheduler import LambdaLR
 
 import networks
 import rssm
+from co_imaginer import evaluation
 import tools
 from networks import Projector
 from optim import LaProp, clip_grad_agc_
@@ -49,6 +50,13 @@ class Dreamer(nn.Module):
         # Sec. 2.2.2, CoDreamer: reward and continue heads communicate, the decoder does not.
         self.reward = self._head(config.reward, self.rssm.feat_size)
         self.cont = self._head(config.cont, self.rssm.feat_size)
+        graph_mode = str(config.comm.graph_mode)
+        if graph_mode not in ("frozen", "rebuilt"):
+            raise ValueError("model.comm.graph_mode must be frozen or rebuilt")
+        self.is_graph_rebuilt = self._comm is not None and graph_mode == "rebuilt"
+        if self.is_graph_rebuilt:
+            # Graph rebuilding, proposal Sec. Proposed Approach
+            self.position = networks.MLPHead(config.position, self.rssm._deter)
 
         config.actor.shape = (act_space.n,) if hasattr(act_space, "n") else tuple(map(int, act_space.shape))
         self.act_discrete = False
@@ -83,6 +91,8 @@ class Dreamer(nn.Module):
             "cont": self.cont,
             "encoder": self.encoder,
         }
+        if self.is_graph_rebuilt:
+            modules["position"] = self.position
 
         if self.rep_loss == "dreamer":
             self.decoder = networks.MultiDecoder(
@@ -252,6 +262,15 @@ class Dreamer(nn.Module):
             assert name_orig == name_new
             param_new.data = param_orig.data
             param_new.requires_grad_(False)
+
+        if self.is_graph_rebuilt:
+            self._frozen_position = copy.deepcopy(self.position)
+            for (name_orig, param_orig), (name_new, param_new) in zip(
+                self.position.named_parameters(), self._frozen_position.named_parameters()
+            ):
+                assert name_orig == name_new
+                param_new.data = param_orig.data
+                param_new.requires_grad_(False)
 
         self._frozen_slow_value = copy.deepcopy(self._slow_value)
         for (name_orig, param_orig), (name_new, param_new) in zip(
@@ -494,6 +513,8 @@ class Dreamer(nn.Module):
         losses["rew"] = torch.mean(-self.reward(feat, graph).log_prob(to_f32(data["reward"])))
         cont = 1.0 - to_f32(data["is_terminal"])
         losses["con"] = torch.mean(-self.cont(feat, graph).log_prob(cont))
+        if self.is_graph_rebuilt:
+            losses["position"] = torch.mean(-self.position(post_deter).log_prob(positions))
         # log
         metrics["dyn_entropy"] = torch.mean(self.rssm.get_dist(prior_logit).entropy())
         metrics["rep_entropy"] = torch.mean(self.rssm.get_dist(post_logit).entropy())
@@ -508,11 +529,16 @@ class Dreamer(nn.Module):
         # Sec. 2.2.3, CoDreamer: imagination keeps the graph of the starting step for
         # every imagined step (the frozen graph). `graph` has lead (B, T), which
         # matches the flattened (B*T) start states.
-        imag_feat, imag_action = self._imagine(start, self.imag_horizon + 1, graph)
+        imag_feat, imag_action, imag_positions = self._imagine(start, self.imag_horizon + 1, graph)
         imag_feat, imag_action = imag_feat.detach(), imag_action.detach()
         # The same frozen edges copied along the imagined-time axis, for heads that
         # see the whole (B*T, T_imag, F) trajectory at once.
-        imag_graph = graph.repeat_steps(self.imag_horizon + 1) if graph is not None else None
+        if imag_positions is not None:
+            imag_graph = self.rssm.graph(imag_positions.reshape(*graph.lead, *imag_positions.shape[1:]))
+        elif graph is not None:
+            imag_graph = graph.repeat_steps(self.imag_horizon + 1)
+        else:
+            imag_graph = None
 
         # (B*T, T_imag, 1)
         imag_reward = self._frozen_reward(imag_feat, imag_graph).mode()
@@ -606,6 +632,7 @@ class Dreamer(nn.Module):
         # (B, S, K), (B, D). `graph` is the frozen starting graph (CoDreamer) or None.
         feats = []
         actions = []
+        positions = []
         stoch, deter = start
         for _ in range(imag_horizon):
             # (B, F)
@@ -615,12 +642,60 @@ class Dreamer(nn.Module):
             # Append feat and its corresponding sampled action at the same time step.
             feats.append(feat)
             actions.append(action)
+            if self.is_graph_rebuilt:
+                positions.append(graph.positions.reshape(-1, 2))
+                stoch, deter, graph = self._frozen_rssm.img_step_rebuilt(
+                    stoch, deter, action, self._locate, graph.lead
+                )
+                continue
             # The prior also exchanges messages over the same frozen graph.
             stoch, deter = self._frozen_rssm.img_step(stoch, deter, action, graph)
 
         # Stack along sequence dim T_imag.
         # (B, T_imag, F), (B, T_imag, A)
-        return torch.stack(feats, dim=1), torch.stack(actions, dim=1)
+        imag_positions = torch.stack(positions, dim=1) if positions else None
+        return torch.stack(feats, dim=1), torch.stack(actions, dim=1), imag_positions
+
+    def _locate(self, deter):
+        return self._frozen_position(deter).mode()
+
+    @torch.no_grad()
+    def graph_f1(self, data, initial):
+        data = self.preprocess(data)
+        positions = self._positions(data)
+        embed = self._frozen_encoder(data)
+        stoch, deter, _ = self._frozen_rssm.observe(embed, data["action"], initial, data["is_first"], positions)
+        rows, steps = positions.shape[:2]
+        horizon = self.imag_horizon
+        starts = steps - horizon
+        device = positions.device
+        window = torch.arange(starts, device=device)[:, None] + torch.arange(horizon + 1, device=device)
+        lead = (rows, starts)
+        stoch = stoch[:, :starts].reshape(rows * starts, *stoch.shape[2:])
+        deter = deter[:, :starts].reshape(rows * starts, -1)
+        action = data["action"][:, window]
+        predicted = [positions[:, :starts]]
+        for k in range(1, horizon + 1):
+            stoch, deter, graph = self._frozen_rssm.img_step_rebuilt(
+                stoch, deter, action[:, :, k].reshape(rows * starts, -1), self._locate, lead
+            )
+            predicted.append(graph.positions)
+        n_agents = int(self._comm.n_agents)
+        worlds = rows // n_agents
+
+        def by_world(x):
+            x = x.reshape(worlds, n_agents, starts, horizon + 1, 2).permute(0, 2, 3, 1, 4)
+            return x.reshape(worlds * starts, horizon + 1, n_agents, 2)
+
+        is_reset = data["is_first"][:, window[:, 1:]].reshape(worlds, n_agents, starts, horizon)
+        is_valid = ~is_reset.any(-1).any(1).reshape(-1)
+        scores = evaluation.graph_f1(
+            by_world(torch.stack(predicted, 2))[is_valid],
+            by_world(positions[:, window])[is_valid],
+            float(self._comm.comm_range),
+            range(1, horizon + 1),
+        )
+        return {f"graph_f1/step_{h}": score for h, score in scores.items()}
 
     @torch.no_grad()
     def _lambda_return(self, last, term, reward, value, boot, disc, lamb):

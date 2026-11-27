@@ -184,6 +184,10 @@ class OnlineTrainer:
                     if self.video_pred_log:
                         data, _, initial = self.replay_buffer.sample(prefer_online=False)
                         self.logger.video("open_loop", tools.to_np(agent.video_pred(data, initial)))
+                    if agent.is_graph_rebuilt:
+                        data, _, initial = self.replay_buffer.sample(prefer_online=False)
+                        for name, value in agent.graph_f1(data, initial).items():
+                            self.logger.scalar(f"train/{name}", value)
                     if self.params_hist_log:
                         for name, param in agent._named_params.items():
                             self.logger.histogram(name, tools.to_np(param))
