@@ -8,6 +8,9 @@ comm:
   # GATv2 attention heads (concatenated) and total message width. The paper does not give these.
   heads: 4
   units: 256
+  # Dense GATv2 on the small robots-by-robots grid of each world (fast). False uses
+  # torch_geometric's sparse GATv2Conv. Same maths and weights either way.
+  dense: True
   # Observation key whose first two numbers are the robot's (x, y) position.
   position_key: obs
 
