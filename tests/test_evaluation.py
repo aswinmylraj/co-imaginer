@@ -278,7 +278,7 @@ def test_reward_error(offset, expected):
     )
 
 
-def make_predictor(enabled, graph_mode):
+def make_predictor(enabled, graph_mode, located=False):
     torch.manual_seed(0)
     comm = OmegaConf.create(
         {"enabled": enabled, "n_agents": 2, "comm_range": 0.5, "heads": 2, "units": 4}
@@ -293,15 +293,21 @@ def make_predictor(enabled, graph_mode):
         lambda stoch, deter: position_head(deter),
         lambda feat, graph: reward_head(feat)[..., 0],
         graph_mode,
+        locate=position_head if located else None,
     )
 
 
 @pytest.mark.parametrize(
-    ("enabled", "graph_mode"),
-    [(False, "frozen"), (True, "frozen"), (True, "rebuilt")],
+    ("enabled", "graph_mode", "located"),
+    [
+        (False, "frozen", False),
+        (True, "frozen", False),
+        (True, "rebuilt", False),
+        (True, "rebuilt", True),
+    ],
 )
-def test_world_model_predictor(enabled, graph_mode):
-    predictor = make_predictor(enabled, graph_mode)
+def test_world_model_predictor(enabled, graph_mode, located):
+    predictor = make_predictor(enabled, graph_mode, located)
     trajectory = make_trajectory([line_positions(8, 0.05), line_positions(8, 0.0)])
     worlds, starts = torch.tensor([0, 1, 1]), torch.tensor([0, 2, 3])
     predicted = predictor(trajectory, worlds, starts, 4)

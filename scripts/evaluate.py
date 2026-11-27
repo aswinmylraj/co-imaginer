@@ -24,6 +24,9 @@ from co_imaginer.evaluation import (
 from co_imaginer.vmas_agents import VmasAgents
 
 CHECKPOINT_NAMES = ("latest.pt", "checkpoint.pt")
+MODEL_DEFAULTS = (
+    ROOT / "third_party" / "r2dreamer" / "configs" / "model" / "_base_.yaml"
+)
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -54,7 +57,11 @@ def find_checkpoint(run_dir: Path, checkpoint: Path | None) -> Path:
 def load_agent(run_dir: Path, checkpoint: Path, device: str):
     from dreamer import Dreamer
 
-    config = OmegaConf.load(run_dir / ".hydra" / "config.yaml")
+    defaults = OmegaConf.load(MODEL_DEFAULTS)
+    config = OmegaConf.merge(
+        {"model": {"comm": defaults.comm}},
+        OmegaConf.load(run_dir / ".hydra" / "config.yaml"),
+    )
     config.device = device
     config.model.device = device
     config.model.compile = False
@@ -80,7 +87,9 @@ def main(argv: list[str] | None = None) -> dict:
     agent, config = load_agent(args.run_dir, checkpoint, args.device)
     comm = config.model.comm
     comm_range = float(comm.comm_range)
-    with_links(agent._frozen_rssm, LINK_MODELS[args.links])
+    graph_mode = args.graph_mode or str(comm.get("graph_mode", "frozen"))
+    for rssm in (agent.rssm, agent._frozen_rssm):
+        with_links(rssm, LINK_MODELS[args.links])
     envs = VmasAgents(
         config.env.task.split("_", 1)[1],
         args.worlds,
@@ -97,7 +106,6 @@ def main(argv: list[str] | None = None) -> dict:
     episodes = episode_metrics(trajectory)
     predictors = {"frozen": frozen_positions}
     if hasattr(agent, "decoder"):
-        graph_mode = args.graph_mode or "frozen"
         predictors["world_model"] = WorldModelPredictor.from_agent(agent, graph_mode)
     graphs = evaluate_graph_prediction(
         trajectory, predictors, comm_range, args.horizons, args.stride
@@ -106,6 +114,7 @@ def main(argv: list[str] | None = None) -> dict:
         "run_dir": str(args.run_dir),
         "checkpoint": str(checkpoint),
         "communication": bool(comm.enabled),
+        "graph_mode": graph_mode,
         "links": args.links,
         "comm_range": comm_range,
         "seed": args.seed,

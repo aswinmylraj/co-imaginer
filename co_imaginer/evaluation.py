@@ -243,6 +243,7 @@ class WorldModelPredictor:
         reward: Callable[[torch.Tensor, AgentGraph | None], torch.Tensor],
         graph_mode: str = "frozen",
         device: str = "cpu",
+        locate: Callable[[torch.Tensor], torch.Tensor] | None = None,
     ) -> None:
         if graph_mode not in ("frozen", "rebuilt"):
             raise ValueError("graph_mode must be frozen or rebuilt")
@@ -252,6 +253,7 @@ class WorldModelPredictor:
         self.reward = reward
         self.graph_mode = graph_mode
         self.device = torch.device(device)
+        self.locate = locate
         self.predicted_reward = None
         self.imagined_steps_per_second = float("nan")
 
@@ -262,6 +264,15 @@ class WorldModelPredictor:
         graph_mode: str = "frozen",
         decode_positions: Callable | None = None,
     ) -> "WorldModelPredictor":
+        locate = None
+        if hasattr(agent, "position"):
+
+            def locate(deter):
+                return agent.position(deter).mode()
+
+            def decode_positions(stoch, deter):
+                return locate(deter)
+
         if decode_positions is None:
 
             def decode_positions(stoch, deter):
@@ -274,6 +285,7 @@ class WorldModelPredictor:
             lambda feat, graph: agent.reward(feat, graph).mode()[..., 0],
             graph_mode,
             str(agent.device),
+            locate,
         )
 
     @torch.no_grad()
@@ -302,12 +314,16 @@ class WorldModelPredictor:
         rewards = [self.reward(self.rssm.get_feat(stoch, deter), start_graph)]
         began = time.perf_counter()
         for h in range(1, horizon + 1):
-            graph = start_graph
-            if self.graph_mode == "rebuilt":
-                graph = self.rssm.graph(positions[-1])
-            stoch, deter = self.rssm.img_step(
-                stoch, deter, action[rows, times + h], graph
-            )
+            step_action = action[rows, times + h]
+            if self.graph_mode == "rebuilt" and self.locate is not None:
+                deter = self.rssm._deter_net(stoch, deter, step_action)
+                graph = self.rssm.graph(self.locate(deter))
+                stoch, _ = self.rssm.prior(deter, graph)
+            else:
+                graph = start_graph
+                if self.graph_mode == "rebuilt":
+                    graph = self.rssm.graph(positions[-1])
+                stoch, deter = self.rssm.img_step(stoch, deter, step_action, graph)
             positions.append(self.decode_positions(stoch, deter))
             rewards.append(self.reward(self.rssm.get_feat(stoch, deter), graph))
         elapsed = max(time.perf_counter() - began, 1e-9)
