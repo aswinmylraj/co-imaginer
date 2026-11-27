@@ -12,3 +12,4 @@ k_receive: null
 checkpoint_minutes: 30
 output_root: runs
 wandb_project: co-imaginer
+wandb_entity: uowaterloo-wmmal

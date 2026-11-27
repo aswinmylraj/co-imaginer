@@ -8,6 +8,7 @@ defaults:
 logdir: logdir/${now:%Y-%m-%d}/${now:%H-%M-%S}
 seed: 0
 wandb_project: co-imaginer
+wandb_entity: uowaterloo-wmmal
 checkpoint_minutes: 30
 deterministic_run: False
 device: 'cuda:0'

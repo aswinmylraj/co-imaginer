@@ -40,6 +40,7 @@ def make_logger(config: DictConfig, run_dir: Path) -> WandbLogger:
         save_dir=str(run_dir),
         id=name,
         project=config.wandb_project,
+        entity=config.wandb_entity,
         config=OmegaConf.to_container(config),
     )
 
