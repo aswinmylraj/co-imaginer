@@ -8,6 +8,7 @@ defaults:
 logdir: logdir/${now:%Y-%m-%d}/${now:%H-%M-%S}
 seed: 0
 wandb_project: co-imaginer
+wandb_entity: uowaterloo-wmmal
 checkpoint_minutes: 30
 deterministic_run: False
 device: 'cuda:0'
@@ -22,7 +23,7 @@ batch_length: 64
 buffer:
   batch_size: ${batch_size}
   batch_length: ${batch_length}
-  max_size: 5e5
+  max_size: ${oc.select:env.buffer_size,5e5}
   device: ${device}
   storage_device: ${device}
   online: True

@@ -112,7 +112,9 @@ class RSSM(nn.Module):
         if self._comm is not None:
             # Sec. 2.2.2, CoDreamer: GNN layer inside the RSSM. Here robots exchange
             # [recurrent state, observation embedding] before the posterior is formed.
-            self._obs_message = GraphLayer(inp_dim, int(self._comm.units), int(self._comm.heads))
+            self._obs_message = GraphLayer(
+                inp_dim, int(self._comm.units), int(self._comm.heads), bool(self._comm.get("dense", True))
+            )
             inp_dim = self._obs_message.out_dim
         for i in range(self._obs_layers):
             self._obs_net.add_module(f"obs_net_{i}", nn.Linear(inp_dim, self._hidden, bias=True))
@@ -130,7 +132,9 @@ class RSSM(nn.Module):
         if self._comm is not None:
             # Same idea for the prior: robots exchange recurrent states before
             # predicting the next stochastic state without an observation.
-            self._img_message = GraphLayer(inp_dim, int(self._comm.units), int(self._comm.heads))
+            self._img_message = GraphLayer(
+                inp_dim, int(self._comm.units), int(self._comm.heads), bool(self._comm.get("dense", True))
+            )
             inp_dim = self._img_message.out_dim
         for i in range(self._img_layers):
             self._img_net.add_module(f"img_net_{i}", nn.Linear(inp_dim, self._hidden, bias=True))
