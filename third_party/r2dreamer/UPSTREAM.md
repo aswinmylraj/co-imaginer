@@ -10,14 +10,14 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
 ## Local changes
 - `tools.py`: `Logger` writes scalars to the W&B logger passed in, instead of TensorBoard. Images, videos, histograms and `log_hydra_config` are dropped.
 - `tools.py`: `ConsoleLogHandle.close` closes both `Tee` streams before the log file. Upstream leaves them open, so at exit `io.IOBase.__del__` flushes them into the closed file and prints `ValueError: I/O operation on closed file`.
-- `train.py`: creates the W&B logger (run ID `dreamerv3_<task>_s<seed>`) and a `co_imaginer.run.Checkpointer`.
+- `train.py`: creates the W&B logger (run ID `dreamerv3_<task>_s<seed>`, team `wandb_entity`) and a `co_imaginer.run.Checkpointer`.
 - `trainer.py`: saves agent and optimizer state through the checkpointer at each metrics log, every `checkpoint_minutes`.
 - `envs/dmc.py`, `envs/__init__.py`: `should_render_image` turns off the 64x64 camera image. Upstream renders it every step even in proprio mode, which costs a GPU render context per env worker and 12 KB per buffer slot.
 - `configs/env/dmc_proprio.yaml`: `should_render_image: False`.
 - `envs/__init__.py`: a `vmas` suite builds `co_imaginer.vmas_agents.VmasAgents`, where each robot in each VMAS world is one batch row. This is IDreamer: one shared DreamerV3, no messages.
 - `configs/env/vmas_discovery.yaml` (new): 4 robots, 4 worlds, 100-step episodes, Discovery settings matching BenchMARL (`shared_reward: True`).
 - `train.py`: VMAS runs are named `idreamer_<task>_n<robots>_s<seed>`.
-- `configs/configs.yaml`: default env `dmc_proprio`, adds `wandb_project` and `checkpoint_minutes`.
+- `configs/configs.yaml`: default env `dmc_proprio`, adds `wandb_project`, `wandb_entity` and `checkpoint_minutes`.
 - `configs/model/_base_.yaml`: default `rep_loss` is `dreamer`.
 - `configs/configs.yaml`: `buffer.max_size` reads `env.buffer_size` and falls back to 5e5. `configs/env/vmas_discovery.yaml` sets 2e5, twice `env.steps`, because the step counter skips reset steps. A Discovery run never fills it, so sampling matches 5e5.
 - CoDreamer (Toledo and Prorok, arXiv:2406.13600), off unless `model.comm.enabled=True`:

@@ -46,6 +46,7 @@ def main(config):
         save_dir=str(logdir),
         id=run_name,
         project=config.wandb_project,
+        entity=config.wandb_entity,
         config=OmegaConf.to_container(config, resolve=True),
     )
     logger = tools.Logger(logdir, writer)
