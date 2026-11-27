@@ -64,3 +64,29 @@ def test_graph(enabled):
         )
         assert stoch.shape == (4, 4, 4)
         assert deter.shape == (4, 16)
+
+
+@pytest.mark.parametrize(
+    ("positions", "expected_edges"),
+    [
+        ([[0.0, 0.0], [0.3, 0.0], [0.0, 0.0], [0.3, 0.0]], 4),
+        ([[0.0, 0.0], [0.3, 0.0], [0.0, 0.0], [0.9, 0.0]], 2),
+        ([[0.0, 0.0], [0.9, 0.0], [0.0, 0.0], [0.9, 0.0]], 0),
+    ],
+)
+def test_img_step_rebuilt(positions, expected_edges):
+    torch.manual_seed(0)
+    model = RSSM(RSSM_CONFIG, 6, 2, comm=_comm(True))
+    stoch, deter = model.initial(4)
+    located = []
+
+    def locate(new_deter):
+        located.append(new_deter)
+        return torch.tensor(positions)
+
+    stoch, deter, graph = model.img_step_rebuilt(
+        stoch, deter, torch.ones(4, 2), locate, (4,)
+    )
+    assert torch.equal(located[0], deter)
+    assert graph.edge_index.shape[1] == expected_edges
+    assert stoch.shape == (4, 4, 4)

@@ -39,6 +39,8 @@ def main(config):
     # Name CoDreamer runs separately so their logs and W&B IDs never mix with IDreamer.
     if config.model.comm.enabled:
         method = "codreamer"
+    if config.model.comm.enabled and config.model.comm.graph_mode == "rebuilt":
+        method = "codreamer_rebuilt"
     agents = f"_n{config.env.n_agents}" if "n_agents" in config.env else ""
     run_name = f"{method}_{config.env.task}{agents}_s{config.seed}"
     writer = WandbLogger(
