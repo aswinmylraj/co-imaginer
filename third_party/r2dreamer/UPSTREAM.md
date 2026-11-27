@@ -9,6 +9,7 @@ Core training code and the DMC proprio and 12M configs only: `buffer.py`, `distr
 
 ## Local changes
 - `tools.py`: `Logger` writes scalars to the W&B logger passed in, instead of TensorBoard. Images, videos, histograms and `log_hydra_config` are dropped.
+- `tools.py`: `ConsoleLogHandle.close` closes both `Tee` streams before the log file. Upstream leaves them open, so at exit `io.IOBase.__del__` flushes them into the closed file and prints `ValueError: I/O operation on closed file`.
 - `train.py`: creates the W&B logger (run ID `dreamerv3_<task>_s<seed>`) and a `co_imaginer.run.Checkpointer`.
 - `trainer.py`: saves agent and optimizer state through the checkpointer at each metrics log, every `checkpoint_minutes`.
 - `envs/dmc.py`, `envs/__init__.py`: `should_render_image` turns off the 64x64 camera image. Upstream renders it every step even in proprio mode, which costs a GPU render context per env worker and 12 KB per buffer slot.
